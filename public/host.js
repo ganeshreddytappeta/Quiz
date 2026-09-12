@@ -97,6 +97,10 @@ const dom = {
   btnOpenAddTeamModal: document.getElementById("btnOpenAddTeamModal"),
   btnResetDefaultTeams: document.getElementById("btnResetDefaultTeams"),
   adminTeamsTableBody: document.getElementById("adminTeamsTableBody"),
+  teamSearchInput: document.getElementById("teamSearchInput"),
+  statTotalTeams: document.getElementById("statTotalTeams"),
+  statOnlineTeams: document.getElementById("statOnlineTeams"),
+  statOfflineTeams: document.getElementById("statOfflineTeams"),
 
   // Team Modal
   teamModalOverlay: document.getElementById("teamModalOverlay"),
@@ -179,7 +183,10 @@ function showLoginGate() {
   dom.adminDashboardSection?.classList.add("hidden");
   dom.adminLogoutBtn?.classList.add("hidden");
   dom.adminSecondaryLogoutBtn?.classList.add("hidden");
-  dom.adminUsernameInput?.focus();
+  if (dom.adminUsernameInput && !dom.adminUsernameInput.value) {
+    dom.adminUsernameInput.value = "admin";
+  }
+  dom.adminPasswordInput?.focus();
 }
 
 function showAdminDashboard() {
@@ -203,10 +210,16 @@ function showAdminDashboard() {
 // Handle Login Form
 dom.adminLoginForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const username = dom.adminUsernameInput.value.trim();
-  const password = dom.adminPasswordInput.value.trim();
+  const username = dom.adminUsernameInput?.value.trim() || "admin";
+  const password = dom.adminPasswordInput?.value.trim() || "";
 
-  if (!username || !password) return;
+  if (!password) {
+    if (dom.adminLoginError) {
+      dom.adminLoginError.textContent = "Please enter admin password ('admin@123' or '123').";
+      dom.adminLoginError.classList.remove("hidden");
+    }
+    return;
+  }
 
   dom.adminLoginError?.classList.add("hidden");
   const submitBtn = document.getElementById("btnAdminSubmitLogin");
@@ -224,10 +237,10 @@ dom.adminLoginForm?.addEventListener("submit", async (e) => {
       adminToken = data.token;
       localStorage.setItem("quiz_admin_token", data.token);
       showAdminDashboard();
-      showToast("Admin access granted. Welcome to QUIZ ARENA!", "success");
+      showToast("Admin access granted. Welcome to Dashboard!", "success");
     } else {
       if (dom.adminLoginError) {
-        dom.adminLoginError.textContent = data.message || "Invalid username or password.";
+        dom.adminLoginError.textContent = data.message || "Invalid password. Enter 'admin@123' or '123'.";
         dom.adminLoginError.classList.remove("hidden");
       }
     }
@@ -466,7 +479,7 @@ function renderAll(state) {
     dom.btnStartQuiz.disabled = state.state === "question" || state.state === "instructions" || state.state === "transition";
   }
   if (dom.btnNextQuestion) {
-    dom.btnNextQuestion.disabled = state.state !== "question" && state.state !== "transition";
+    dom.btnNextQuestion.disabled = state.state !== "question" && state.state !== "transition" && state.state !== "instructions";
   }
 
   // 3. Question Card
@@ -1077,18 +1090,33 @@ function renderTeamsTable() {
   if (!dom.adminTeamsTableBody) return;
   const currentTeams = currentHostState?.teams || [];
 
-  if (!teamsData || teamsData.length === 0) {
+  // Filter by search query if typed
+  const searchQuery = dom.teamSearchInput ? dom.teamSearchInput.value.trim().toLowerCase() : "";
+  const filteredTeams = searchQuery
+    ? teamsData.filter(t => (t.name || "").toLowerCase().includes(searchQuery) || (t.code || "").toLowerCase().includes(searchQuery))
+    : teamsData;
+
+  // Update stats counters
+  const totalCount = teamsData.length;
+  const onlineCount = teamsData.filter(t => currentTeams.some(ct => ct.teamName.toLowerCase() === t.name.toLowerCase() && ct.connected)).length;
+  const offlineCount = totalCount - onlineCount;
+
+  if (dom.statTotalTeams) dom.statTotalTeams.textContent = totalCount;
+  if (dom.statOnlineTeams) dom.statOnlineTeams.textContent = onlineCount;
+  if (dom.statOfflineTeams) dom.statOfflineTeams.textContent = offlineCount;
+
+  if (!filteredTeams || filteredTeams.length === 0) {
     dom.adminTeamsTableBody.innerHTML = `
       <tr>
         <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2.5rem;">
-          No teams registered yet. Click <strong>"➕ Add New Team"</strong> above to get started.
+          ${searchQuery ? `No teams matching "${escapeHtml(searchQuery)}".` : 'No teams registered yet. Click <strong>"➕ Add New Team"</strong> above to get started.'}
         </td>
       </tr>
     `;
     return;
   }
 
-  dom.adminTeamsTableBody.innerHTML = teamsData.map((t, idx) => {
+  dom.adminTeamsTableBody.innerHTML = filteredTeams.map((t, idx) => {
     const activeTeam = currentTeams.find(item => item.teamName.toLowerCase() === t.name.toLowerCase());
     const isOnline = activeTeam ? activeTeam.connected : false;
     const score = activeTeam ? activeTeam.score : 0;
@@ -1365,6 +1393,8 @@ dom.btnCancelTeamModal?.addEventListener("click", closeTeamModal);
 dom.btnCloseTeamModalBtn?.addEventListener("click", closeTeamModal);
 dom.teamEditForm?.addEventListener("submit", handleTeamFormSubmit);
 
+dom.teamSearchInput?.addEventListener("input", renderTeamsTable);
+
 dom.btnGenerateRandomCode?.addEventListener("click", () => {
   if (dom.inputTeamCode) {
     const prefix = dom.inputTeamName?.value.trim().substring(0, 3).toUpperCase() || "T";
@@ -1403,32 +1433,82 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   checkAuthOnStartup();
 
-  // Host Controls Listeners
-  dom.btnStartQuiz?.addEventListener("click", () => {
-    if (socket) {
+  // Host Game Controls Listeners (WebSocket + REST Fallback)
+  dom.btnStartQuiz?.addEventListener("click", async () => {
+    if (dom.btnStartQuiz.disabled) return;
+    dom.btnStartQuiz.disabled = true;
+    if (socket && socket.connected) {
       socket.emit("quiz-start");
-      dom.btnStartQuiz.disabled = true;
+    }
+    if (adminToken) {
+      try {
+        await fetch("/api/admin/quiz/start", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+      } catch (e) {
+        console.warn("Quiz start API trigger:", e);
+      }
+    }
+    showToast("Quiz started! Arena is launching...", "info");
+  });
+
+  dom.btnNextQuestion?.addEventListener("click", async () => {
+    if (dom.btnNextQuestion.disabled) return;
+    if (socket && socket.connected) {
+      socket.emit("next-question");
+    }
+    if (adminToken) {
+      try {
+        await fetch("/api/admin/quiz/next", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+      } catch (e) {
+        console.warn("Quiz next API trigger:", e);
+      }
     }
   });
 
-  dom.btnNextQuestion?.addEventListener("click", () => {
-    if (socket) socket.emit("next-question");
-  });
-
-  dom.btnEndQuiz?.addEventListener("click", () => {
+  dom.btnEndQuiz?.addEventListener("click", async () => {
     if (confirm("Are you sure you want to end the quiz and display the final winner podium?")) {
-      if (socket) socket.emit("end-quiz");
+      if (socket && socket.connected) {
+        socket.emit("end-quiz");
+      }
+      if (adminToken) {
+        try {
+          await fetch("/api/admin/quiz/end", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${adminToken}` }
+          });
+        } catch (e) {
+          console.warn("Quiz end API trigger:", e);
+        }
+      }
     }
   });
 
-  dom.btnResetQuiz?.addEventListener("click", () => {
+  dom.btnResetQuiz?.addEventListener("click", async () => {
     if (confirm("Reset the entire quiz? All scores will be cleared and the arena will return to lobby.")) {
-      if (socket) socket.emit("reset-quiz");
+      if (socket && socket.connected) {
+        socket.emit("reset-quiz");
+      }
+      if (adminToken) {
+        try {
+          await fetch("/api/admin/quiz/reset", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${adminToken}` }
+          });
+        } catch (e) {
+          console.warn("Quiz reset API trigger:", e);
+        }
+      }
+      showToast("Quiz reset to lobby.", "info");
     }
   });
 
   dom.btnRestartAfterFinish?.addEventListener("click", () => {
-    if (socket) socket.emit("reset-quiz");
+    if (socket && socket.connected) socket.emit("reset-quiz");
   });
 
   dom.toggleFullscreenBtn?.addEventListener("click", toggleFullscreen);

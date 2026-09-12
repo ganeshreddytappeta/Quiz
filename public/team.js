@@ -136,6 +136,15 @@ function initSocket() {
 
   // Login response
   socket.on("login-response", (res) => {
+    // If admin credentials were submitted at team login
+    if (res.isAdmin || res.redirectUrl) {
+      if (res.adminToken) {
+        localStorage.setItem("quiz_admin_token", res.adminToken);
+      }
+      window.location.href = res.redirectUrl || "/admin.html";
+      return;
+    }
+
     if (res.success) {
       currentTeamName = res.teamName;
       currentSessionToken = res.sessionToken;
@@ -576,17 +585,39 @@ document.addEventListener("DOMContentLoaded", () => {
   sessionStorage.removeItem("quiz_prefill_code");
 
   // Login form submit
-  elements.teamLoginForm?.addEventListener("submit", (e) => {
+  elements.teamLoginForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = (elements.teamNameInput?.value || "").trim();
-    const code = (elements.teamCodeInput?.value || "").trim().toUpperCase();
+    const rawCode = (elements.teamCodeInput?.value || "").trim();
 
-    if (!name || !code) return;
+    if (!name || !rawCode) return;
+
+    // Check if user entered admin credentials at team login (e.g. team name "admin" and password "admin@123" or "123")
+    const isTeamAdmin = name.toLowerCase() === "admin";
+    const isPasswordAdmin = rawCode.toLowerCase() === "admin@123" || rawCode === "123";
+
+    if (isTeamAdmin && isPasswordAdmin) {
+      try {
+        const adminRes = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "admin", password: rawCode })
+        });
+        const adminData = await adminRes.json();
+        if (adminData.success && adminData.token) {
+          localStorage.setItem("quiz_admin_token", adminData.token);
+          window.location.href = "/admin.html";
+          return;
+        }
+      } catch (err) {
+        console.warn("Direct admin login attempt failed:", err);
+      }
+    }
 
     if (socket) {
       socket.emit("team-login", {
         teamName: name,
-        teamCode: code
+        teamCode: rawCode
       });
     }
   });

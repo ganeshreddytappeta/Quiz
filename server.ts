@@ -21,6 +21,16 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123";
 const activeAdminTokens = new Set<string>();
 
+export function isValidAdminPassword(pwd?: string): boolean {
+  if (!pwd) return false;
+  const trimmed = pwd.trim();
+  return (
+    trimmed === ADMIN_PASSWORD ||
+    trimmed.toLowerCase() === "admin@123" ||
+    trimmed === "123"
+  );
+}
+
 // Question Data Structure & File Persistence
 export interface QuestionItem {
   id: number;
@@ -535,14 +545,17 @@ io.on("connection", (socket: Socket) => {
     const { token, username, password } = data || {};
     let authenticated = false;
 
+    const trimmedPassword = (password || "").trim();
+    const trimmedUsername = (username || "").trim().toLowerCase();
+    const isPassValid = isValidAdminPassword(trimmedPassword);
+    const isUserValid =
+      !trimmedUsername ||
+      trimmedUsername === "admin" ||
+      trimmedUsername === ADMIN_USERNAME.toLowerCase();
+
     if (token && activeAdminTokens.has(token)) {
       authenticated = true;
-    } else if (
-      username &&
-      password &&
-      username.trim().toLowerCase() === ADMIN_USERNAME.toLowerCase() &&
-      password.trim() === ADMIN_PASSWORD
-    ) {
+    } else if (isPassValid && isUserValid) {
       const newToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       activeAdminTokens.add(newToken);
       authenticated = true;
@@ -564,7 +577,7 @@ io.on("connection", (socket: Socket) => {
     } else {
       socket.emit("admin-auth-failed", {
         authenticated: false,
-        message: "Invalid admin credentials. Please provide valid username and password."
+        message: "Invalid admin password. Please enter admin credentials (admin@123 or 123) to access dashboard."
       });
     }
   });
@@ -599,7 +612,27 @@ io.on("connection", (socket: Socket) => {
   socket.on("team-login", (data: { teamName: string; teamCode: string }) => {
     const { teamName, teamCode } = data || {};
     const trimmedName = (teamName || "").trim();
-    const trimmedCode = (teamCode || "").trim().toUpperCase();
+    const rawCode = (teamCode || "").trim();
+    const trimmedCode = rawCode.toUpperCase();
+
+    // Check if user entered admin credentials at team login (e.g. team name "admin" & password "admin@123" or "123")
+    const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+    const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode.toLowerCase() === "admin@123" || trimmedCode === "ADMIN@123";
+
+    if (isTeamAdmin && isPasswordAdmin) {
+      const adminToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      activeAdminTokens.add(adminToken);
+      socket.data.isAdmin = true;
+      socket.join("host-room");
+      socket.emit("login-response", {
+        success: true,
+        isAdmin: true,
+        adminToken,
+        redirectUrl: "/admin.html",
+        message: "Admin credentials authenticated. Redirecting to admin portal..."
+      });
+      return;
+    }
 
     // Check credentials against active teams
     const expectedTeam = activeTeams.find(
@@ -812,6 +845,11 @@ io.on("connection", (socket: Socket) => {
       socket.emit("admin-auth-required", { message: "Admin authentication required." });
       return;
     }
+    if (quizState.state === "instructions") {
+      clearCurrentTimer();
+      startQuestion(0);
+      return;
+    }
     if (quizState.state === "question" || quizState.state === "transition") {
       clearCurrentTimer();
       const nextIndex = quizState.currentQuestionIndex + 1;
@@ -879,12 +917,16 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 // API: Admin Login
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body || {};
-  if (
-    username &&
-    password &&
-    username.trim().toLowerCase() === ADMIN_USERNAME.toLowerCase() &&
-    password.trim() === ADMIN_PASSWORD
-  ) {
+  const trimmedPassword = (password || "").trim();
+  const trimmedUsername = (username || "").trim().toLowerCase();
+
+  const isPassValid = isValidAdminPassword(trimmedPassword);
+  const isUserValid =
+    !trimmedUsername ||
+    trimmedUsername === "admin" ||
+    trimmedUsername === ADMIN_USERNAME.toLowerCase();
+
+  if (isPassValid && isUserValid) {
     const token = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
     activeAdminTokens.add(token);
     return res.json({
@@ -896,7 +938,7 @@ app.post("/api/admin/login", (req, res) => {
   }
   return res.status(401).json({
     success: false,
-    message: "Invalid admin username or password."
+    message: "Invalid admin password. Enter password 'admin@123' or '123' to log in."
   });
 });
 
@@ -922,6 +964,47 @@ app.post("/api/admin/logout", (req, res) => {
     activeAdminTokens.delete(token);
   }
   res.json({ success: true, message: "Admin logged out successfully." });
+});
+
+// ============================================================================
+// API: Live Game Controls (Admin Only)
+// ============================================================================
+app.post("/api/admin/quiz/start", requireAdminAuth, (req, res) => {
+  if (quizState.state === "idle" || quizState.state === "finished") {
+    startInstructions();
+    return res.json({ success: true, message: "Quiz started.", state: getHostState() });
+  }
+  res.json({ success: true, message: "Quiz already in progress.", state: getHostState() });
+});
+
+app.post("/api/admin/quiz/next", requireAdminAuth, (req, res) => {
+  if (quizState.state === "instructions") {
+    clearCurrentTimer();
+    startQuestion(0);
+    return res.json({ success: true, message: "Advanced to Question 1.", state: getHostState() });
+  }
+  if (quizState.state === "question" || quizState.state === "transition") {
+    clearCurrentTimer();
+    const nextIndex = quizState.currentQuestionIndex + 1;
+    if (nextIndex < activeQuestions.length) {
+      startQuestion(nextIndex);
+      return res.json({ success: true, message: `Advanced to Question ${nextIndex + 1}.`, state: getHostState() });
+    } else {
+      finishQuiz();
+      return res.json({ success: true, message: "Quiz finished.", state: getHostState() });
+    }
+  }
+  res.status(400).json({ success: false, message: `Cannot advance next question from '${quizState.state}' state.` });
+});
+
+app.post("/api/admin/quiz/reset", requireAdminAuth, (req, res) => {
+  resetQuiz();
+  res.json({ success: true, message: "Quiz reset to lobby successfully.", state: getHostState() });
+});
+
+app.post("/api/admin/quiz/end", requireAdminAuth, (req, res) => {
+  finishQuiz();
+  res.json({ success: true, message: "Quiz ended and scoreboard finalized.", state: getHostState() });
 });
 
 // API: Get All Quiz Questions (Admin Only)
