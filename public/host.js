@@ -139,6 +139,41 @@ function showToast(message, type = "info") {
   }, 3500);
 }
 
+// Iframe-safe non-blocking confirmation modal
+function showConfirmDialog({ title, message, confirmText = "Confirm", isDanger = true, onConfirm }) {
+  const overlay = document.getElementById("confirmModalOverlay");
+  const titleEl = document.getElementById("confirmModalTitle");
+  const msgEl = document.getElementById("confirmModalMessage");
+  const okBtn = document.getElementById("confirmModalOkBtn");
+  const cancelBtn = document.getElementById("confirmModalCancelBtn");
+  const iconEl = document.getElementById("confirmModalIcon");
+
+  if (!overlay || !okBtn || !cancelBtn) {
+    if (typeof onConfirm === "function") onConfirm();
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = title || "Are you sure?";
+  if (msgEl) msgEl.textContent = message || "";
+  okBtn.textContent = confirmText;
+  okBtn.className = isDanger ? "btn-danger" : "btn-primary";
+  if (iconEl) iconEl.textContent = isDanger ? "⚠️" : "❓";
+
+  const close = () => {
+    overlay.classList.add("hidden");
+    okBtn.onclick = null;
+    cancelBtn.onclick = null;
+  };
+
+  cancelBtn.onclick = close;
+  okBtn.onclick = () => {
+    close();
+    if (typeof onConfirm === "function") onConfirm();
+  };
+
+  overlay.classList.remove("hidden");
+}
+
 // ============================================================================
 // Time Formatting
 // ============================================================================
@@ -993,29 +1028,33 @@ dom.questionForm?.addEventListener("submit", async (e) => {
 // Delete Question
 window.deleteQuestion = async function(id) {
   if (questionsData.length <= 1) {
-    alert("The quiz must have at least 1 question. Cannot delete the only remaining question.");
+    showToast("The quiz must have at least 1 question. Cannot delete the only remaining question.", "error");
     return;
   }
 
-  if (!confirm(`Are you sure you want to delete Question #${id}?`)) {
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/admin/questions/${id}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${adminToken}` }
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast("Question deleted.", "info");
-      loadQuestions();
-    } else {
-      alert(data.message || "Could not delete question.");
+  showConfirmDialog({
+    title: "Delete Question",
+    message: `Are you sure you want to delete Question #${id}? This action cannot be undone.`,
+    confirmText: "Delete Question",
+    isDanger: true,
+    onConfirm: async () => {
+      try {
+        const res = await fetch(`/api/admin/questions/${id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("Question deleted successfully.", "info");
+          loadQuestions();
+        } else {
+          showToast(data.message || "Could not delete question.", "error");
+        }
+      } catch (err) {
+        showToast("Network error while deleting question.", "error");
+      }
     }
-  } catch (err) {
-    alert("Network error while deleting question.");
-  }
+  });
 };
 
 // Move Question (Reorder)
@@ -1051,24 +1090,30 @@ window.moveQuestion = async function(id, direction) {
 };
 
 // Reset Default Questions
-dom.btnResetDefaultQuestions?.addEventListener("click", async () => {
-  if (!confirm("Reset the question bank back to the standard 10 general knowledge questions? Any custom questions will be replaced.")) {
-    return;
-  }
-
-  try {
-    const res = await fetch("/api/admin/questions/reset", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${adminToken}` }
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast("Questions restored to default set.", "success");
-      loadQuestions();
+dom.btnResetDefaultQuestions?.addEventListener("click", () => {
+  showConfirmDialog({
+    title: "Reset Question Bank",
+    message: "Reset the question bank back to the standard 10 general knowledge questions? Any custom questions will be replaced.",
+    confirmText: "Reset Questions",
+    isDanger: true,
+    onConfirm: async () => {
+      try {
+        const res = await fetch("/api/admin/questions/reset", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("Questions restored to default set.", "success");
+          loadQuestions();
+        } else {
+          showToast(data.message || "Failed to reset questions.", "error");
+        }
+      } catch (err) {
+        showToast("Error resetting questions.", "error");
+      }
     }
-  } catch (err) {
-    alert("Error resetting questions.");
-  }
+  });
 });
 
 // ============================================================================
@@ -1212,7 +1257,8 @@ function closeTeamModal() {
 async function handleTeamFormSubmit(e) {
   e.preventDefault();
   if (!adminToken) {
-    alert("Admin session expired. Please log in again.");
+    showToast("Admin session expired. Please log in again.", "error");
+    showLoginGate();
     return;
   }
 
@@ -1302,44 +1348,48 @@ window.copyTeamCode = function(code, teamName) {
     navigator.clipboard.writeText(code).then(() => {
       showToast(`Copied code "${code}" for ${teamName}!`, "success");
     }).catch(() => {
-      prompt(`Access code for ${teamName}:`, code);
+      showToast(`Access code for ${teamName}: ${code}`, "info");
     });
   } else {
-    prompt(`Access code for ${teamName}:`, code);
+    showToast(`Access code for ${teamName}: ${code}`, "info");
   }
 };
 
 window.deleteTeam = async function(teamId, teamName) {
   if (!adminToken) return;
   if (teamsData.length <= 2) {
-    alert("Cannot remove team. The quiz tournament requires at least 2 teams.");
+    showToast("Cannot remove team. The quiz tournament requires at least 2 teams.", "error");
     return;
   }
 
-  if (!confirm(`Are you sure you want to delete "${teamName}"? Any active session for this team will be immediately disconnected.`)) {
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/admin/teams/${teamId}`, {
-      method: "DELETE",
-      headers: {
-        "Authorization": `Bearer ${adminToken}`
+  showConfirmDialog({
+    title: "Delete Team",
+    message: `Are you sure you want to delete "${teamName}"? Any active session for this team will be immediately disconnected.`,
+    confirmText: "Delete Team",
+    isDanger: true,
+    onConfirm: async () => {
+      try {
+        const res = await fetch(`/api/admin/teams/${teamId}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${adminToken}`
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.teams) {
+            teamsData = data.teams;
+          }
+          renderTeamsTable();
+          showToast(`Team "${teamName}" was removed.`, "info");
+        } else {
+          showToast(data.message || "Failed to delete team.", "error");
+        }
+      } catch (err) {
+        showToast("Network error deleting team.", "error");
       }
-    });
-    const data = await res.json();
-    if (data.success) {
-      if (data.teams) {
-        teamsData = data.teams;
-      }
-      renderTeamsTable();
-      showToast(`Team "${teamName}" was removed.`, "info");
-    } else {
-      alert(data.message || "Failed to delete team.");
     }
-  } catch (err) {
-    alert("Network error deleting team.");
-  }
+  });
 };
 
 window.resetTeamSession = async function(teamName) {
@@ -1357,37 +1407,43 @@ window.resetTeamSession = async function(teamName) {
     if (data.success) {
       showToast(`Session reset for ${teamName}. Team can now log in again.`, "success");
       loadTeams();
+    } else {
+      showToast(data.message || "Could not reset team session.", "error");
     }
   } catch (e) {
-    alert("Failed to reset team session.");
+    showToast("Failed to reset team session.", "error");
   }
 };
 
 // Reset Default Teams
-dom.btnResetDefaultTeams?.addEventListener("click", async () => {
+dom.btnResetDefaultTeams?.addEventListener("click", () => {
   if (!adminToken) return;
-  if (!confirm("Reset back to standard 10 teams and codes? All custom team names will be reset.")) {
-    return;
-  }
-
-  try {
-    const res = await fetch("/api/admin/teams/reset", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${adminToken}` }
-    });
-    const data = await res.json();
-    if (data.success) {
-      if (data.teams) {
-        teamsData = data.teams;
+  showConfirmDialog({
+    title: "Reset All Teams",
+    message: "Reset back to standard 10 teams and codes? All custom team names will be reset to default.",
+    confirmText: "Reset Teams",
+    isDanger: true,
+    onConfirm: async () => {
+      try {
+        const res = await fetch("/api/admin/teams/reset", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.teams) {
+            teamsData = data.teams;
+          }
+          renderTeamsTable();
+          showToast("Teams restored to default 10 teams and codes.", "success");
+        } else {
+          showToast(data.message || "Failed to reset teams.", "error");
+        }
+      } catch (err) {
+        showToast("Error resetting teams.", "error");
       }
-      renderTeamsTable();
-      showToast("Teams restored to default 10 teams and codes.", "success");
-    } else {
-      alert(data.message || "Failed to reset teams.");
     }
-  } catch (err) {
-    alert("Error resetting teams.");
-  }
+  });
 });
 
 // Modal event listeners
@@ -1413,12 +1469,23 @@ dom.teamModalOverlay?.addEventListener("click", (e) => {
 
 // Fullscreen toggle for projector
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(err => {
-      console.warn("Fullscreen request failed:", err);
-    });
-  } else {
-    document.exitFullscreen();
+  try {
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn("Fullscreen request failed:", err);
+          showToast("Fullscreen mode restricted in this frame/tab.", "info");
+        });
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(err => {
+          console.warn("Exit fullscreen failed:", err);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Fullscreen toggle error:", err);
   }
 }
 
@@ -1432,7 +1499,7 @@ function escapeHtml(text) {
 // ============================================================================
 // Initialization
 // ============================================================================
-document.addEventListener("DOMContentLoaded", () => {
+function initHostApp() {
   setupTabs();
   checkAuthOnStartup();
 
@@ -1473,41 +1540,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  dom.btnEndQuiz?.addEventListener("click", async () => {
-    if (confirm("Are you sure you want to end the quiz and display the final winner podium?")) {
-      if (socket && socket.connected) {
-        socket.emit("end-quiz");
-      }
-      if (adminToken) {
-        try {
-          await fetch("/api/admin/quiz/end", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${adminToken}` }
-          });
-        } catch (e) {
-          console.warn("Quiz end API trigger:", e);
+  dom.btnEndQuiz?.addEventListener("click", () => {
+    showConfirmDialog({
+      title: "End Quiz",
+      message: "Are you sure you want to end the quiz and display the final winner podium?",
+      confirmText: "End Quiz",
+      isDanger: true,
+      onConfirm: async () => {
+        if (socket && socket.connected) {
+          socket.emit("end-quiz");
+        }
+        if (adminToken) {
+          try {
+            await fetch("/api/admin/quiz/end", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${adminToken}` }
+            });
+          } catch (e) {
+            console.warn("Quiz end API trigger:", e);
+          }
         }
       }
-    }
+    });
   });
 
-  dom.btnResetQuiz?.addEventListener("click", async () => {
-    if (confirm("Reset the entire quiz? All scores will be cleared and the arena will return to lobby.")) {
-      if (socket && socket.connected) {
-        socket.emit("reset-quiz");
-      }
-      if (adminToken) {
-        try {
-          await fetch("/api/admin/quiz/reset", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${adminToken}` }
-          });
-        } catch (e) {
-          console.warn("Quiz reset API trigger:", e);
+  dom.btnResetQuiz?.addEventListener("click", () => {
+    showConfirmDialog({
+      title: "Reset Quiz",
+      message: "Reset the entire quiz? All scores will be cleared and the arena will return to lobby.",
+      confirmText: "Reset to Lobby",
+      isDanger: true,
+      onConfirm: async () => {
+        if (socket && socket.connected) {
+          socket.emit("reset-quiz");
         }
+        if (adminToken) {
+          try {
+            await fetch("/api/admin/quiz/reset", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${adminToken}` }
+            });
+          } catch (e) {
+            console.warn("Quiz reset API trigger:", e);
+          }
+        }
+        showToast("Quiz reset to lobby.", "info");
       }
-      showToast("Quiz reset to lobby.", "info");
-    }
+    });
   });
 
   dom.btnRestartAfterFinish?.addEventListener("click", () => {
@@ -1515,4 +1594,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   dom.toggleFullscreenBtn?.addEventListener("click", toggleFullscreen);
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initHostApp);
+} else {
+  initHostApp();
+}

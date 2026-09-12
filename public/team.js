@@ -137,11 +137,12 @@ function initSocket() {
   // Login response
   socket.on("login-response", (res) => {
     // If admin credentials were submitted at team login
-    if (res.isAdmin || res.redirectUrl) {
-      if (res.adminToken) {
-        localStorage.setItem("quiz_admin_token", res.adminToken);
+    if (res.isAdmin || res.redirectUrl || res.redirect) {
+      const token = res.adminToken || res.token;
+      if (token) {
+        localStorage.setItem("quiz_admin_token", token);
       }
-      window.location.href = res.redirectUrl || "/admin.html";
+      window.location.href = res.redirectUrl || res.redirect || "/admin.html";
       return;
     }
 
@@ -283,8 +284,13 @@ function initSocket() {
     if (elements.transitionProgress) elements.transitionProgress.style.width = "100%";
   });
 
+let totalQuestionsCount = 10;
+
   // Quiz Finished
   socket.on("quiz-finished", (data) => {
+    if (data && data.totalQuestions) {
+      totalQuestionsCount = data.totalQuestions;
+    }
     showView("finalScoreboard");
     renderFinalScoreboard(data.scoreboard, data.winner);
     startConfettiAnimation();
@@ -319,12 +325,15 @@ function initSocket() {
 
   // Team removed by admin
   socket.on("team-removed", (data) => {
-    alert(data.message || "Your team has been removed by the administrator.");
     sessionStorage.removeItem("quiz_team_name");
     sessionStorage.removeItem("quiz_session_token");
     currentTeamName = null;
     currentSessionToken = null;
-    showView("login");
+    if (elements.invalidErrorTitle) elements.invalidErrorTitle.textContent = "Team Session Ended";
+    if (elements.invalidErrorMessage) {
+      elements.invalidErrorMessage.textContent = data.message || "Your team has been removed by the administrator.";
+    }
+    showView("invalidLogin");
   });
 
   socket.on("disconnect", () => {
@@ -490,7 +499,7 @@ function renderFinalScoreboard(scoreboard = [], winner = null) {
             ${t.teamName} ${isCurrentTeam ? '⭐ <span style="font-size: 0.8rem; color: #a5b4fc;">(You)</span>' : ''}
           </td>
           <td style="font-weight: 700; color: #34d399;">
-            ${t.score} / 10
+            ${t.score} / ${totalQuestionsCount || 10}
           </td>
           <td style="font-family: monospace; color: #cbd5e1;">
             ${t.totalTime}s
@@ -565,8 +574,51 @@ function startConfettiAnimation() {
 }
 
 // Event Listeners Initialization
-document.addEventListener("DOMContentLoaded", () => {
+function initTeamApp() {
   initSocket();
+
+  // Load and render available teams helper
+  async function loadAvailableTeams() {
+    const chipsContainer = document.getElementById("teamsListChips");
+    if (!chipsContainer) return;
+    try {
+      const res = await fetch("/api/teams");
+      const data = await res.json();
+      if (data.teams && Array.isArray(data.teams)) {
+        activeTeamsList = data.teams;
+        chipsContainer.innerHTML = data.teams.map(t => `
+          <button type="button" class="team-quick-chip" data-team="${t.name}" data-code="${t.code}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.35rem 0.6rem; font-size: 0.8rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; cursor: pointer; text-align: left; transition: background 0.15s;">
+            <span style="font-weight: 600;">${t.name}</span>
+            <span style="font-family: monospace; color: #818cf8; background: rgba(99,102,241,0.2); padding: 0.1rem 0.4rem; border-radius: 4px;">${t.code}</span>
+          </button>
+        `).join('');
+
+        chipsContainer.querySelectorAll(".team-quick-chip").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const tName = btn.getAttribute("data-team");
+            const tCode = btn.getAttribute("data-code");
+            if (elements.teamNameInput) elements.teamNameInput.value = tName;
+            if (elements.teamCodeInput) {
+              elements.teamCodeInput.value = tCode;
+              elements.teamCodeInput.focus();
+            }
+          });
+        });
+      }
+    } catch (e) {
+      console.warn("Could not fetch available teams helper:", e);
+    }
+  }
+
+  loadAvailableTeams();
+
+  const toggleTeamsBtn = document.getElementById("toggleAvailableTeamsBtn");
+  const teamsDropdown = document.getElementById("availableTeamsDropdown");
+  if (toggleTeamsBtn && teamsDropdown) {
+    toggleTeamsBtn.addEventListener("click", () => {
+      teamsDropdown.classList.toggle("hidden");
+    });
+  }
 
   // Check URL parameters or sessionStorage for autofill
   const params = new URLSearchParams(window.location.search);
@@ -589,10 +641,16 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const name = (elements.teamNameInput?.value || "").trim();
     const rawCode = (elements.teamCodeInput?.value || "").trim();
+    const feedbackEl = document.getElementById("loginStatusFeedback");
 
     if (!name || !rawCode) return;
 
-    // Check if user entered admin credentials at team login (team name "admin" and password "admin@123")
+    if (feedbackEl) {
+      feedbackEl.classList.add("hidden");
+      feedbackEl.textContent = "";
+    }
+
+    // Check if user entered admin credentials at team login
     const isTeamAdmin = name.toLowerCase() === "admin";
     const isPasswordAdmin = rawCode === "admin@123";
 
@@ -604,8 +662,8 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ username: "admin", password: rawCode })
         });
         const adminData = await adminRes.json();
-        if (adminData.success && adminData.token) {
-          localStorage.setItem("quiz_admin_token", adminData.token);
+        if (adminData.success && (adminData.token || adminData.adminToken)) {
+          localStorage.setItem("quiz_admin_token", adminData.token || adminData.adminToken);
           window.location.href = "/admin.html";
           return;
         }
@@ -614,11 +672,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (socket) {
+    if (socket && socket.connected) {
       socket.emit("team-login", {
         teamName: name,
         teamCode: rawCode
       });
+    } else {
+      if (feedbackEl) {
+        feedbackEl.textContent = "Connecting to arena server... Please wait a moment and try again.";
+        feedbackEl.classList.remove("hidden");
+      }
+      if (!socket || !socket.connected) {
+        initSocket();
+        setTimeout(() => {
+          if (socket && socket.connected) {
+            socket.emit("team-login", { teamName: name, teamCode: rawCode });
+          }
+        }, 1200);
+      }
     }
   });
 
@@ -649,4 +720,10 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.waitingLogoutBtn?.addEventListener("click", doLogout);
   elements.teamLogoutTopBtn?.addEventListener("click", doLogout);
   elements.finalLogoutBtn?.addEventListener("click", doLogout);
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initTeamApp);
+} else {
+  initTeamApp();
+}

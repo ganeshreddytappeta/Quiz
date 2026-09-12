@@ -501,7 +501,8 @@ function finishQuiz() {
 
   io.emit("quiz-finished", {
     scoreboard: rankings,
-    winner
+    winner,
+    totalQuestions: activeQuestions.length
   });
 
   broadcastAll();
@@ -624,6 +625,8 @@ io.on("connection", (socket: Socket) => {
         success: true,
         isAdmin: true,
         adminToken,
+        token: adminToken,
+        redirect: "/admin.html",
         redirectUrl: "/admin.html",
         message: "Admin credentials authenticated. Redirecting to admin portal..."
       });
@@ -644,15 +647,23 @@ io.on("connection", (socket: Socket) => {
     }
 
     const canonicalName = expectedTeam.name;
-    const team = quizState.teams[canonicalName];
-    if (!team) {
-      socket.emit("login-response", {
-        success: false,
-        errorType: "invalid_credentials",
-        message: "Team record not found in arena."
-      });
-      return;
+    if (!quizState.teams[canonicalName]) {
+      quizState.teams[canonicalName] = {
+        teamName: expectedTeam.name,
+        teamCode: expectedTeam.code,
+        socketId: null,
+        connected: false,
+        score: 0,
+        totalTime: 0,
+        sessionToken: null,
+        currentAnswer: null,
+        currentAnswerTime: null,
+        currentResult: "waiting",
+        isFirstCorrect: false,
+        history: []
+      };
     }
+    const team = quizState.teams[canonicalName];
 
     // Check duplicate login: If active on another socket
     if (team.connected && team.socketId && team.socketId !== socket.id) {

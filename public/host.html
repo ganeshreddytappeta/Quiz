@@ -598,6 +598,19 @@
     </div>
   </div>
 
+  <!-- Generic Confirmation Modal (No iframe DOMException window.confirm) -->
+  <div id="confirmModalOverlay" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 440px; text-align: center;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.5rem;" id="confirmModalIcon">⚠️</div>
+      <h3 id="confirmModalTitle" style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">Confirm Action</h3>
+      <p id="confirmModalMessage" style="color: var(--text-dim); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;"></p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center;">
+        <button type="button" class="btn-secondary" id="confirmModalCancelBtn">Cancel</button>
+        <button type="button" class="btn-danger" id="confirmModalOkBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="adminToastContainer"></div>
 
@@ -605,11 +618,6 @@
   <canvas id="confettiCanvas" class="hidden"></canvas>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    if (typeof io === 'undefined') {
-      document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/script>');
-    }
-  </script>
   <script src="/host.js"></script>
 </body>
 </html>
