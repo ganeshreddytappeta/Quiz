@@ -592,9 +592,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!name || !rawCode) return;
 
-    // Check if user entered admin credentials at team login (e.g. team name "admin" and password "admin@123" or "123")
+    // Check if user entered admin credentials at team login (team name "admin" and password "admin@123")
     const isTeamAdmin = name.toLowerCase() === "admin";
-    const isPasswordAdmin = rawCode.toLowerCase() === "admin@123" || rawCode === "123";
+    const isPasswordAdmin = rawCode === "admin@123";
 
     if (isTeamAdmin && isPasswordAdmin) {
       try {

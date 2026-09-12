@@ -20,9 +20,8 @@
         <span class="live-dot"></span> LIVE BROADCAST
       </div>
       <button class="nav-btn" id="toggleFullscreenBtn" title="Toggle Fullscreen for Projector">⛶ Fullscreen</button>
-      <a href="/" class="nav-btn" target="_blank" title="Open Team Arena in new tab">📱 Team Arena</a>
       <button class="nav-btn hidden" id="adminLogoutBtn" style="color: #f87171; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; cursor: pointer;" title="Logout from Admin">🚪 Admin Logout</button>
-      <a href="/" class="nav-btn">📱 Team Login</a>
+      <a href="/" class="nav-btn" title="Back to Team Login">📱 Team Login</a>
     </div>
   </nav>
 
@@ -37,7 +36,7 @@
         Admin Dashboard Login
       </h2>
       <p style="color: var(--text-dim); font-size: 0.95rem; margin-bottom: 1.5rem;">
-        Sign in with administrator password <code style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700;">admin@123</code> or <code style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700;">123</code> to manage team credentials and trigger live game controls.
+        Sign in with administrator password <code style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700;">admin@123</code> to manage team credentials and trigger live game controls.
       </p>
 
       <form id="adminLoginForm" style="display: flex; flex-direction: column; gap: 1rem; text-align: left;">
@@ -59,7 +58,7 @@
             type="password"
             id="adminPasswordInput"
             class="form-input"
-            placeholder="Enter password (admin@123 or 123)"
+            placeholder="Enter password (admin@123)"
             required
             autocomplete="current-password"
             autofocus

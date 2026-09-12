@@ -215,7 +215,7 @@ dom.adminLoginForm?.addEventListener("submit", async (e) => {
 
   if (!password) {
     if (dom.adminLoginError) {
-      dom.adminLoginError.textContent = "Please enter admin password ('admin@123' or '123').";
+      dom.adminLoginError.textContent = "Please enter admin password 'admin@123'.";
       dom.adminLoginError.classList.remove("hidden");
     }
     return;
@@ -240,7 +240,7 @@ dom.adminLoginForm?.addEventListener("submit", async (e) => {
       showToast("Admin access granted. Welcome to Dashboard!", "success");
     } else {
       if (dom.adminLoginError) {
-        dom.adminLoginError.textContent = data.message || "Invalid password. Enter 'admin@123' or '123'.";
+        dom.adminLoginError.textContent = data.message || "Invalid password. Enter 'admin@123'.";
         dom.adminLoginError.classList.remove("hidden");
       }
     }
@@ -277,8 +277,11 @@ async function performAdminLogout() {
     socket.emit("admin-logout", { token: tokenToRevoke });
   }
 
-  showLoginGate();
-  showToast("You have been signed out from Admin Console.", "info");
+  adminToken = null;
+  localStorage.removeItem("quiz_admin_token");
+
+  // Redirect to the team login page
+  window.location.href = "/team.html";
 }
 
 dom.adminLogoutBtn?.addEventListener("click", performAdminLogout);

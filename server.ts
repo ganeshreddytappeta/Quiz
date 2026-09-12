@@ -18,17 +18,13 @@ const PORT = 3000;
 
 // Admin Credentials Configuration
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin@123";
 const activeAdminTokens = new Set<string>();
 
 export function isValidAdminPassword(pwd?: string): boolean {
   if (!pwd) return false;
   const trimmed = pwd.trim();
-  return (
-    trimmed === ADMIN_PASSWORD ||
-    trimmed.toLowerCase() === "admin@123" ||
-    trimmed === "123"
-  );
+  return trimmed === ADMIN_PASSWORD || trimmed === "admin@123";
 }
 
 // Question Data Structure & File Persistence
@@ -577,7 +573,7 @@ io.on("connection", (socket: Socket) => {
     } else {
       socket.emit("admin-auth-failed", {
         authenticated: false,
-        message: "Invalid admin password. Please enter admin credentials (admin@123 or 123) to access dashboard."
+        message: "Invalid admin password. Please enter password 'admin@123' to access dashboard."
       });
     }
   });
@@ -615,9 +611,9 @@ io.on("connection", (socket: Socket) => {
     const rawCode = (teamCode || "").trim();
     const trimmedCode = rawCode.toUpperCase();
 
-    // Check if user entered admin credentials at team login (e.g. team name "admin" & password "admin@123" or "123")
+    // Check if user entered admin credentials at team login (team name "admin" & password "admin@123")
     const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
-    const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode.toLowerCase() === "admin@123" || trimmedCode === "ADMIN@123";
+    const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
 
     if (isTeamAdmin && isPasswordAdmin) {
       const adminToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -938,7 +934,7 @@ app.post("/api/admin/login", (req, res) => {
   }
   return res.status(401).json({
     success: false,
-    message: "Invalid admin password. Enter password 'admin@123' or '123' to log in."
+    message: "Invalid admin password. Enter password 'admin@123' to log in."
   });
 });
 
@@ -1452,18 +1448,54 @@ app.get("/api/quiz-status", (req, res) => {
   res.json(getHostState());
 });
 
-// Static files and Page routes
-const publicPath = path.join(process.cwd(), "public");
+// Enable reverse proxy support (Cloud Run / Nginx)
+app.set("trust proxy", true);
+
+// Robust static file resolver for development, production bundle, and container environments
+function findExistingFilePath(...relativeCandidates: string[]): string | null {
+  const baseDirectories: string[] = [
+    path.join(process.cwd(), "public"),
+    path.join(process.cwd(), "dist"),
+    process.cwd()
+  ];
+
+  if (typeof __dirname !== "undefined") {
+    baseDirectories.push(path.join(__dirname, "public"));
+    baseDirectories.push(path.join(__dirname, "..", "public"));
+    baseDirectories.push(path.join(__dirname, "..", "dist"));
+    baseDirectories.push(__dirname);
+  }
+
+  for (const rel of relativeCandidates) {
+    for (const base of baseDirectories) {
+      const full = path.resolve(base, rel);
+      if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+        return full;
+      }
+    }
+  }
+  return null;
+}
+
+function sendStaticHtml(res: express.Response, fallbackFilename: string, ...candidateNames: string[]) {
+  const resolved = findExistingFilePath(...candidateNames, fallbackFilename);
+  if (resolved) {
+    res.sendFile(resolved);
+  } else {
+    // Ultimate fallback if files are in standard cwd
+    res.sendFile(path.join(process.cwd(), "public", fallbackFilename));
+  }
+}
 
 // 1. DIRECT TEAM LOGIN PAGE WHEN OPENED:
 // Root '/' directly serves the Team Login page (team.html)
 app.get("/", (req, res) => {
-  res.sendFile(path.join(publicPath, "team.html"));
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
 // Explicit Team Login routes
 app.get(["/team", "/team.html"], (req, res) => {
-  res.sendFile(path.join(publicPath, "team.html"));
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
 // Redirect /index.html to '/' so team login is always prioritized
@@ -1473,20 +1505,33 @@ app.get("/index.html", (req, res) => {
 
 // Admin / Host Routes - all served via host.html
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
-  res.sendFile(path.join(publicPath, "host.html"));
+  sendStaticHtml(res, "host.html", "public/host.html", "dist/host.html");
 });
 
 // Optional landing page route if accessed via /landing or /home
 app.get(["/landing", "/landing.html", "/home"], (req, res) => {
-  res.sendFile(path.join(publicPath, "index.html"));
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
 });
 
-// Serve static frontend files with { index: false } so '/' route handler takes precedence
-app.use(express.static(publicPath, { index: false }));
+// Serve static frontend files from all possible locations
+const candidateStaticDirs = [
+  path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "dist"),
+  process.cwd()
+];
 
-// Also serve dist if built
-const distPath = path.join(process.cwd(), "dist");
-app.use(express.static(distPath, { index: false }));
+if (typeof __dirname !== "undefined") {
+  candidateStaticDirs.push(path.join(__dirname, "public"));
+  candidateStaticDirs.push(path.join(__dirname, "..", "public"));
+  candidateStaticDirs.push(path.join(__dirname, "..", "dist"));
+  candidateStaticDirs.push(__dirname);
+}
+
+for (const dir of candidateStaticDirs) {
+  if (fs.existsSync(dir)) {
+    app.use(express.static(dir, { index: false }));
+  }
+}
 
 // Start listening on port 3000 (0.0.0.0 is mandatory)
 server.listen(PORT, "0.0.0.0", () => {
