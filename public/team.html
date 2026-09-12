@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QUIZ ARENA - Team Arena</title>
+  <meta name="description" content="Team competition client for QUIZ ARENA">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <nav class="app-navbar">
+    <a href="/" class="brand-title">
+      <span>🏆</span> QUIZ ARENA
+      <span class="brand-badge" id="navTeamStatusBadge">TEAM ARENA</span>
+    </a>
+    <div class="nav-links">
+      <span id="currentTeamDisplay" style="font-weight: 700; color: #a5b4fc; font-size: 0.9rem; display: none;"></span>
+      <button class="btn-danger hidden" id="teamLogoutTopBtn" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">Logout</button>
+      <a href="/admin.html" class="nav-btn" target="_blank" title="Open Admin Portal">👑 Admin Portal</a>
+    </div>
+  </nav>
+
+  <main class="page-container">
+
+    <!-- ====================================================================
+         VIEW 1: SCREEN 2 - TEAM LOGIN PAGE
+         ==================================================================== -->
+    <div class="auth-wrapper fade-in" id="viewLogin">
+      <div class="card-glass">
+        <div class="auth-header">
+          <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📱</div>
+          <h2>Team Login</h2>
+          <p>Enter your team details to join the quiz</p>
+        </div>
+
+        <form id="teamLoginForm">
+          <div class="form-group">
+            <label class="form-label" for="teamNameInput">Team Name</label>
+            <input 
+              type="text" 
+              class="form-input" 
+              id="teamNameInput" 
+              placeholder="e.g. Team 1" 
+              required
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="teamCodeInput">Unique Team Code</label>
+            <input 
+              type="text" 
+              class="form-input" 
+              id="teamCodeInput" 
+              placeholder="e.g. T1A7" 
+              required
+              autocomplete="off"
+              style="text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;"
+            >
+          </div>
+
+          <button type="submit" class="btn-primary" id="loginSubmitBtn" style="width: 100%; margin-top: 0.5rem;">
+            Login & Join Quiz
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 2: SCREEN 3 - INVALID LOGIN
+         ==================================================================== -->
+    <div class="auth-wrapper hidden fade-in" id="viewInvalidLogin">
+      <div class="card-glass error-card">
+        <div class="error-icon">⚠️</div>
+        <h2 class="error-title" id="invalidErrorTitle">Invalid Code</h2>
+        <p class="error-desc" id="invalidErrorMessage">
+          The team name or code is incorrect. Please try again.
+        </p>
+        <button class="btn-primary" id="tryAgainBtn">
+          🔄 Try Again
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 3: SCREEN 4 - WAITING ROOM
+         ==================================================================== -->
+    <div class="auth-wrapper hidden fade-in" id="viewWaitingRoom">
+      <div class="card-glass waiting-card">
+        <div class="radar-spinner">
+          <div class="radar-inner-icon">📡</div>
+        </div>
+        
+        <div class="hero-stats-pill" style="margin-bottom: 0.75rem;">
+          QUIZ ARENA
+        </div>
+
+        <h2 class="waiting-title">Waiting for the Quiz to Start...</h2>
+        <div class="waiting-subtitle" id="waitingTeamTitle">Team Name</div>
+        <p class="waiting-note" style="margin-bottom: 0.5rem; font-size: 1.05rem; color: #e2e8f0; font-weight: 600;">
+          Get ready! The quiz will begin soon.
+        </p>
+        <p class="waiting-note" style="margin-bottom: 2rem;">
+          Stay on this page. When the host starts the quiz, you will automatically transition.
+        </p>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: center;">
+          <button class="btn-danger" id="waitingLogoutBtn">
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 4: SCREEN 5 - QUIZ INSTRUCTIONS
+         ==================================================================== -->
+    <div class="instructions-card hidden fade-in" id="viewInstructions">
+      <div class="card-glass">
+        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📋</div>
+        <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem;">
+          Quiz Instructions
+        </h2>
+        <p style="color: var(--text-dim); font-size: 0.95rem;">
+          Read carefully before the competition begins:
+        </p>
+
+        <ul class="rules-list">
+          <li>
+            <span class="rule-icon">🔘</span>
+            <div><strong>4 Options (A, B, C, D):</strong> Each question will present 4 choices. Select the single best answer.</div>
+          </li>
+          <li>
+            <span class="rule-icon">⚡</span>
+            <div><strong>Speed Matters:</strong> Click your answer as quickly as possible. Faster answers break ties!</div>
+          </li>
+          <li>
+            <span class="rule-icon">🖥️</span>
+            <div><strong>Live Broadcast:</strong> All team answers and response times are broadcast live to the main host screen.</div>
+          </li>
+          <li>
+            <span class="rule-icon">⏱️</span>
+            <div><strong>Authoritative Clock:</strong> Response time is officially recorded by the server down to the millisecond.</div>
+          </li>
+          <li>
+            <span class="rule-icon">🤝</span>
+            <div><strong>Fair Play:</strong> Be fair, compete with honor, and enjoy the arena!</div>
+          </li>
+        </ul>
+
+        <div class="countdown-box">
+          <p style="font-size: 1rem; color: #c7d2fe; font-weight: 600; margin-bottom: 0.25rem;">
+            The quiz will start in:
+          </p>
+          <div class="countdown-number" id="instructionsCountdown">5</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="instructionsProgress" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 5: SCREEN 6 - QUESTION SCREEN FOR TEAMS
+         ==================================================================== -->
+    <div class="question-view-wrapper hidden fade-in" id="viewQuestion">
+      <!-- Top info bar -->
+      <div class="team-header-bar">
+        <div class="team-badge">
+          <span>🛡️</span>
+          <span id="questionTeamName">Team 1</span>
+        </div>
+        <div class="timer-indicator" id="questionTimer">
+          <span>⏱️</span>
+          <span id="questionTimerSeconds">30s</span>
+        </div>
+      </div>
+
+      <div class="card-glass">
+        <div class="question-meta" id="questionNumberMeta">Question 1 of 10</div>
+        <h2 class="question-text" id="questionText">
+          Loading question...
+        </h2>
+
+        <!-- Options Grid (A, B, C, D) -->
+        <div class="options-grid" id="optionsGrid">
+          <button class="option-btn" id="optionBtnA" data-option="A">
+            <span class="option-letter">A</span>
+            <span class="option-text" id="optionTextA">Option A</span>
+          </button>
+          <button class="option-btn" id="optionBtnB" data-option="B">
+            <span class="option-letter">B</span>
+            <span class="option-text" id="optionTextB">Option B</span>
+          </button>
+          <button class="option-btn" id="optionBtnC" data-option="C">
+            <span class="option-letter">C</span>
+            <span class="option-text" id="optionTextC">Option C</span>
+          </button>
+          <button class="option-btn" id="optionBtnD" data-option="D">
+            <span class="option-letter">D</span>
+            <span class="option-text" id="optionTextD">Option D</span>
+          </button>
+        </div>
+
+        <!-- Answer Submitted Confirmation Card -->
+        <div class="submission-card hidden" id="submissionFeedbackCard">
+          <div class="submission-icon">✓</div>
+          <h3 class="submission-title">Answer Submitted!</h3>
+          <p class="submission-detail">
+            You selected: <strong id="submittedOptionLabel">B. New Delhi</strong>
+          </p>
+          <div>
+            <span class="submission-time" id="submittedTimeLabel">Time Taken: 00:08</span>
+          </div>
+          <p class="submission-waiting">
+            ⏳ Waiting for other teams to submit...
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 6: SCREEN 8 - NEXT QUESTION TRANSITION
+         ==================================================================== -->
+    <div class="auth-wrapper hidden fade-in" id="viewTransition">
+      <div class="card-glass waiting-card">
+        <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">⏭️</div>
+        <h2 class="waiting-title" style="margin-bottom: 0.5rem;" id="transitionHeading">Next Question in</h2>
+        <div class="countdown-number" id="transitionCountdown" style="color: #38bdf8;">5</div>
+        <div class="progress-bar-bg" style="max-width: 320px; margin: 1rem auto;">
+          <div class="progress-bar-fill" id="transitionProgress" style="width: 100%;"></div>
+        </div>
+        <p class="waiting-note" id="transitionSubtext">
+          Prepare for Question 2!
+        </p>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         VIEW 7: FINAL SCOREBOARD & LOGOUT SCREEN
+         ==================================================================== -->
+    <div class="scoreboard-container hidden fade-in" id="viewFinalScoreboard">
+      
+      <!-- Winner Banner -->
+      <div class="winner-banner">
+        <div class="winner-crown">👑</div>
+        <div class="winner-subtitle">QUIZ ARENA CHAMPION</div>
+        <h1 class="winner-name" id="winnerTeamName">Team 4</h1>
+        <p class="winner-tagline">CONGRATULATIONS! Quiz Champions of the Arena!</p>
+      </div>
+
+      <!-- Top 3 Podium -->
+      <div class="podium-grid" id="podiumGrid">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Full Table -->
+      <div class="card-glass" style="margin-bottom: 2rem; text-align: left;">
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 1rem;">
+          🏆 Final Scoreboard
+        </h3>
+        <div class="table-container">
+          <table class="live-table" id="finalScoreboardTable">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Team Name</th>
+                <th>Correct Answers</th>
+                <th>Total Time (s)</th>
+              </tr>
+            </thead>
+            <tbody id="finalScoreboardBody">
+              <!-- Injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Participation & Logout Card -->
+      <div class="card-glass" style="text-align: center; padding: 2.5rem 1.5rem;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎉</div>
+        <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+          Thank You!
+        </h2>
+        <p style="color: var(--text-dim); font-size: 1.05rem; margin-bottom: 1.5rem;">
+          Thanks for participating in <strong>QUIZ ARENA</strong>.
+        </p>
+        <button class="btn-primary" id="finalLogoutBtn" style="padding: 0.85rem 2rem; margin-bottom: 1.25rem;">
+          🚪 Logout
+        </button>
+        <p style="color: #a5b4fc; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em;">
+          "Keep Learning, Keep Growing!"
+        </p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confettiCanvas" class="hidden"></canvas>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      console.warn('Local socket.io script not found, loading fallback...');
+      document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/script>');
+    }
+  </script>
+  <script src="/team.js"></script>
+</body>
+</html>

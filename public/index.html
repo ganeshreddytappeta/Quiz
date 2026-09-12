@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QUIZ ARENA - Real-Time Multiplayer Quiz Competition</title>
+  <meta name="description" content="QUIZ ARENA - 10 Teams, 1 Champion. Real-time multiplayer quiz competition with live host dashboard and instant rankings.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav class="app-navbar" id="mainNavbar">
+    <a href="/" class="brand-title" id="brandLogo">
+      <span>🏆</span> QUIZ ARENA
+      <span class="brand-badge">COMPETITION</span>
+    </a>
+    <div class="nav-links">
+      <a href="/team.html" class="nav-btn nav-btn-highlight" id="navTeamBtn">📱 Team Login</a>
+      <a href="/admin.html" class="nav-btn" id="navAdminBtn">🔐 Admin Portal</a>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="page-container">
+    <div class="hero-section fade-in">
+      <div class="hero-trophy">🏆</div>
+      <h1 class="hero-title">QUIZ ARENA</h1>
+      <div class="hero-motto">Think • Answer • Win Together</div>
+      
+      <div class="hero-stats-pill">
+        <span>⚡ 10 Teams</span>
+        <span>•</span>
+        <span>👑 1 Champion</span>
+        <span>•</span>
+        <span>🔐 Protected Admin & Question Bank</span>
+      </div>
+
+      <p class="hero-tagline">
+        Welcome to the ultimate real-time arena. Test your speed, accuracy, and team synergy in a head-to-head live competition powered by authoritative real-time synchronization.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/team.html" class="btn-primary" id="joinQuizBtn" style="font-size: 1.15rem; padding: 1rem 2.25rem;">
+          🚀 Join Quiz Now
+        </a>
+        <a href="/admin.html" class="btn-secondary" id="hostArenaBtn" style="font-size: 1.15rem; padding: 1rem 2rem;">
+          🔐 Admin Portal & Questions
+        </a>
+        <button class="btn-secondary" id="openCredsSheetBtn" style="padding: 1rem 1.5rem;">
+          📋 View Team Credentials
+        </button>
+      </div>
+    </div>
+
+    <!-- Feature Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem;">
+      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Live Synchronized Clocks</h3>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">
+          Every question starts at the exact same millisecond. Server-authoritative timing records exact response duration down to the hundredth of a second.
+        </p>
+      </div>
+
+      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📊</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Real-Time Host Dashboard</h3>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">
+          Host views live submissions as they happen without refreshing. Highlights the first correct responder with lightning badge detection.
+        </p>
+      </div>
+
+      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🥇</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Instant Leaderboard & Tie-Breaker</h3>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">
+          Rankings are determined by total correct answers. If scores tie, the total recorded response time automatically breaks the tie.
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer style="text-align: center; padding: 1.5rem; color: var(--color-muted); font-size: 0.85rem; border-top: 1px solid var(--border-subtle); margin-top: auto;">
+    QUIZ ARENA • Real-Time Competition System • Think • Answer • Win Together
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>
