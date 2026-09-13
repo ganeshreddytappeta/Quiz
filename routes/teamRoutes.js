@@ -1,21 +1,47 @@
 import express from "express";
 import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
 import { Team } from "../models/Team.js";
 
 const router = express.Router();
 
+const TEAMS_FILE = path.join(process.cwd(), "data", "teams.json");
+
 const DEFAULT_TEAMS_LIST = [
-  { teamName: "Team 1", teamCode: "T1A7" },
-  { teamName: "Team 2", teamCode: "T2B8" },
-  { teamName: "Team 3", teamCode: "T3C9" },
-  { teamName: "Team 4", teamCode: "T4D1" },
-  { teamName: "Team 5", teamCode: "T5E2" },
-  { teamName: "Team 6", teamCode: "T6F3" },
-  { teamName: "Team 7", teamCode: "T7G4" },
-  { teamName: "Team 8", teamCode: "T8H5" },
-  { teamName: "Team 9", teamCode: "T9I6" },
-  { teamName: "Team 10", teamCode: "T10J7" }
+  { id: "t1", name: "Team 1", code: "T1A7", teamName: "Team 1", teamCode: "T1A7" },
+  { id: "t2", name: "Team 2", code: "T2B8", teamName: "Team 2", teamCode: "T2B8" },
+  { id: "t3", name: "Team 3", code: "T3C9", teamName: "Team 3", teamCode: "T3C9" },
+  { id: "t4", name: "Team 4", code: "T4D1", teamName: "Team 4", teamCode: "T4D1" },
+  { id: "t5", name: "Team 5", code: "T5E2", teamName: "Team 5", teamCode: "T5E2" },
+  { id: "t6", name: "Team 6", code: "T6F3", teamName: "Team 6", teamCode: "T6F3" },
+  { id: "t7", name: "Team 7", code: "T7G4", teamName: "Team 7", teamCode: "T7G4" },
+  { id: "t8", name: "Team 8", code: "T8H5", teamName: "Team 8", teamCode: "T8H5" },
+  { id: "t9", name: "Team 9", code: "T9I6", teamName: "Team 9", teamCode: "T9I6" },
+  { id: "t10", name: "Team 10", code: "T10J7", teamName: "Team 10", teamCode: "T10J7" }
 ];
+
+function getActiveTeamsFallback() {
+  try {
+    if (fs.existsSync(TEAMS_FILE)) {
+      const content = fs.readFileSync(TEAMS_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((t, idx) => ({
+          id: t.id || `t${idx + 1}`,
+          name: t.name || t.teamName,
+          code: t.code || t.teamCode,
+          teamName: t.name || t.teamName,
+          teamCode: t.code || t.teamCode,
+          isConnected: false
+        }));
+      }
+    }
+  } catch (e) {
+    console.error("Error reading data/teams.json in teamRoutes:", e);
+  }
+  return DEFAULT_TEAMS_LIST;
+}
 
 // GET /api/teams - Public team list
 router.get("/", async (req, res) => {
@@ -36,17 +62,11 @@ router.get("/", async (req, res) => {
       });
     }
 
+    const fallbackTeams = getActiveTeamsFallback();
     return res.json({
       success: true,
-      source: "memory_fallback",
-      teams: DEFAULT_TEAMS_LIST.map((t, idx) => ({
-        id: `t${idx + 1}`,
-        name: t.teamName,
-        code: t.teamCode,
-        teamName: t.teamName,
-        teamCode: t.teamCode,
-        isConnected: false
-      }))
+      source: "file_sync",
+      teams: fallbackTeams
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -67,15 +87,15 @@ router.get("/status", async (req, res) => {
       });
     }
 
-    // Fallback if MongoDB is offline
+    const fallbackTeams = getActiveTeamsFallback();
     return res.json({
       success: true,
-      source: "memory_fallback",
-      connectedCount: 0,
-      totalTeams: DEFAULT_TEAMS_LIST.length,
-      teams: DEFAULT_TEAMS_LIST.map((t) => ({
-        teamName: t.teamName,
-        isConnected: false,
+      source: "file_sync",
+      connectedCount: fallbackTeams.filter((t) => t.isConnected).length,
+      totalTeams: fallbackTeams.length,
+      teams: fallbackTeams.map((t) => ({
+        teamName: t.name,
+        isConnected: t.isConnected,
         totalScore: 0,
         totalResponseTime: 0
       }))
@@ -92,17 +112,19 @@ router.post("/login", async (req, res) => {
     const trimmedName = (teamName || "").trim();
     const trimmedCode = (teamCode || "").trim().toUpperCase();
 
-    if (!trimmedName || !trimmedCode) {
-      return res.status(400).json({ success: false, message: "Team name and code are required." });
+    if (!trimmedCode) {
+      return res.status(400).json({ success: false, message: "Team code is required." });
     }
 
     if (mongoose.connection.readyState === 1) {
-      const team = await Team.findOne({
-        teamName: { $regex: new RegExp(`^${trimmedName}$`, "i") }
-      });
+      const query = trimmedName
+        ? { teamName: { $regex: new RegExp(`^${trimmedName}$`, "i") } }
+        : { teamCode: trimmedCode };
+
+      const team = await Team.findOne(query);
 
       if (!team) {
-        return res.status(401).json({ success: false, message: "Invalid team name." });
+        return res.status(401).json({ success: false, message: "Invalid team credentials." });
       }
 
       if (team.teamCode.toUpperCase() !== trimmedCode) {
@@ -124,10 +146,14 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Fallback credential check
-    const match = DEFAULT_TEAMS_LIST.find(
-      (t) => t.teamName.toLowerCase() === trimmedName.toLowerCase() && t.teamCode.toUpperCase() === trimmedCode
-    );
+    // Fallback credential check from data/teams.json
+    const activeTeams = getActiveTeamsFallback();
+    const match = activeTeams.find((t) => {
+      const codeMatches = (t.code || t.teamCode || "").trim().toUpperCase() === trimmedCode;
+      if (!trimmedName) return codeMatches;
+      const nameMatches = (t.name || t.teamName || "").trim().toLowerCase() === trimmedName.toLowerCase();
+      return codeMatches && nameMatches;
+    }) || activeTeams.find((t) => (t.code || t.teamCode || "").trim().toUpperCase() === trimmedCode);
 
     if (!match) {
       return res.status(401).json({ success: false, message: "Invalid team name or code." });
@@ -135,9 +161,10 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       success: true,
-      source: "memory_fallback",
+      source: "file_sync",
       team: {
-        teamName: match.teamName,
+        id: match.id,
+        teamName: match.name || match.teamName,
         totalScore: 0,
         totalResponseTime: 0
       }
