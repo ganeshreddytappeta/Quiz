@@ -234,33 +234,69 @@ initTeams();
 // MongoDB Connection & Data Synchronization
 // ============================================================================
 let isMongoConnected = false;
+let mongoStatusMessage = "In-Memory Active";
 mongoose.set("bufferCommands", false);
 
+function cleanMongoUri(rawUri: string): { uri: string; isPlaceholder: boolean } {
+  let uri = (rawUri || "").trim();
+  if (/<(db_)?password>/i.test(uri)) {
+    return { uri, isPlaceholder: true };
+  }
+  // Strip accidental leading or enclosing angle brackets from password
+  uri = uri.replace(/:\/\/([^:]+):<?([^>@]+)>?@/, "://$1:$2@");
+  return { uri, isPlaceholder: false };
+}
+
 async function connectToMongoDB() {
+  if (!MONGODB_URI) {
+    mongoStatusMessage = "In-Memory Active (No URI configured)";
+    console.log("Database: No MONGODB_URI configured. Running with in-memory persistence.");
+    return;
+  }
+
+  const { uri: cleanUri, isPlaceholder } = cleanMongoUri(MONGODB_URI);
+  if (isPlaceholder) {
+    mongoStatusMessage = "In-Memory Active (Placeholder <db_password> in MONGODB_URI)";
+    console.log(
+      "Database notice: MONGODB_URI contains '<db_password>' placeholder. " +
+      "The app is running with in-memory persistence. To connect MongoDB Atlas, " +
+      "update MONGODB_URI in Settings with your real database password and add 0.0.0.0/0 to Atlas Network Access."
+    );
+    return;
+  }
+
   try {
     mongoose.connection.on("connected", () => {
       isMongoConnected = true;
-      console.log("MongoDB connected successfully");
+      mongoStatusMessage = "MongoDB Connected";
+      console.log("MongoDB connected successfully to:", mongoose.connection.name);
     });
 
     mongoose.connection.on("disconnected", () => {
       isMongoConnected = false;
-      console.warn("MongoDB disconnected.");
+      mongoStatusMessage = "In-Memory Fallback Active";
+      console.log("MongoDB disconnected. Operating in in-memory mode.");
     });
 
     mongoose.connection.on("error", (err) => {
-      console.error("MongoDB connection error:", err.message);
+      isMongoConnected = false;
+      mongoStatusMessage = `In-Memory Fallback (${err.message})`;
+      console.log(`Database notice: ${err.message}. Operating in in-memory mode.`);
     });
 
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 3000
+    await mongoose.connect(cleanUri, {
+      dbName: "quiz_arena",
+      serverSelectionTimeoutMS: 5000
     });
 
     // Auto-sync initial data into MongoDB if empty
     await syncMongoData();
   } catch (err: any) {
-    console.warn("MongoDB connection failed or skipped. Running with in-memory persistence fallback.");
-    console.warn("Reason:", err.message);
+    isMongoConnected = false;
+    mongoStatusMessage = "In-Memory Fallback Active";
+    console.log(
+      `Database notice: MongoDB unreachable (${err.message}). Seamlessly running with in-memory persistence fallback.`
+    );
   }
 }
 
@@ -393,7 +429,7 @@ function getHostState() {
     totalTeams: activeTeams.length,
     databaseStatus: {
       connected: isMongoConnected,
-      status: isMongoConnected ? "MongoDB Connected" : "In-Memory Active"
+      status: isMongoConnected ? "MongoDB Connected" : mongoStatusMessage
     },
     teams: Object.values(quizState.teams).map((t) => ({
       teamName: t.teamName,
@@ -1268,12 +1304,17 @@ app.use("/api/quiz", quizRoutes);
 
 // Health & Database status endpoint
 app.get("/api/db/status", (req, res) => {
+  const { isPlaceholder } = cleanMongoUri(MONGODB_URI);
   res.json({
     success: true,
     connected: isMongoConnected,
     readyState: mongoose.connection.readyState,
-    status: isMongoConnected ? "Connected" : "In-Memory Fallback Active",
-    database: "quiz_arena"
+    status: isMongoConnected ? "Connected" : mongoStatusMessage,
+    database: isMongoConnected ? (mongoose.connection.name || "quiz_arena") : "quiz_arena",
+    hasPlaceholder: isPlaceholder,
+    hint: isPlaceholder
+      ? "Replace <db_password> in your MONGODB_URI environment variable with your actual database user password, and whitelist 0.0.0.0/0 in MongoDB Atlas Network Access."
+      : (isMongoConnected ? "MongoDB Atlas connected and ready." : "Operating in resilient in-memory mode. For MongoDB Atlas, ensure 0.0.0.0/0 is whitelisted in Atlas Network Access.")
   });
 });
 

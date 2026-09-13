@@ -523,13 +523,15 @@ function renderAll(state) {
   if (dom.hostDatabaseText && dom.hostDatabaseDot) {
     const isMongo = state.databaseStatus?.connected;
     if (isMongo) {
-      dom.hostDatabaseText.textContent = "MongoDB Active";
+      dom.hostDatabaseText.textContent = "MongoDB Connected";
       dom.hostDatabaseDot.style.background = "#10b981";
       dom.hostDatabaseText.style.color = "#34d399";
+      dom.hostDatabaseText.title = "Connected to MongoDB database";
     } else {
-      dom.hostDatabaseText.textContent = "Memory Fallback (Atlas Ready)";
+      dom.hostDatabaseText.textContent = "In-Memory Active";
       dom.hostDatabaseDot.style.background = "#38bdf8";
       dom.hostDatabaseText.style.color = "#7dd3fc";
+      dom.hostDatabaseText.title = state.databaseStatus?.status || "Running in high-speed in-memory mode";
     }
   }
 

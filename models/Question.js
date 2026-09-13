@@ -36,7 +36,5 @@ const questionSchema = new mongoose.Schema({
   }
 });
 
-questionSchema.index({ questionNumber: 1 }, { unique: true });
-
 export const Question = mongoose.models.Question || mongoose.model("Question", questionSchema);
 export default Question;

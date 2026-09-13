@@ -34,8 +34,5 @@ const teamSchema = new mongoose.Schema({
   }
 });
 
-// Compound or unique indexes
-teamSchema.index({ teamName: 1 }, { unique: true });
-
 export const Team = mongoose.models.Team || mongoose.model("Team", teamSchema);
 export default Team;

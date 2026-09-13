@@ -21,13 +21,32 @@ const INITIAL_TEAMS = [
   { teamName: "Team 10", teamCode: "T10J7" }
 ];
 
+function cleanMongoUri(rawUri) {
+  let uri = (rawUri || "").trim();
+  if (/<(db_)?password>/i.test(uri)) {
+    return { uri, isPlaceholder: true };
+  }
+  uri = uri.replace(/:\/\/([^:]+):<?([^>@]+)>?@/, "://$1:$2@");
+  return { uri, isPlaceholder: false };
+}
+
 async function seed() {
+  const { uri: cleanUri, isPlaceholder } = cleanMongoUri(MONGODB_URI);
+  if (isPlaceholder) {
+    console.log(
+      "Notice: MONGODB_URI contains a placeholder like '<db_password>'. " +
+      "Please update MONGODB_URI with your real database user password in Settings before running seeding."
+    );
+    process.exit(0);
+  }
+
   console.log("Connecting to MongoDB for database seeding...");
   try {
-    await mongoose.connect(MONGODB_URI, {
+    await mongoose.connect(cleanUri, {
+      dbName: "quiz_arena",
       serverSelectionTimeoutMS: 5000
     });
-    console.log("MongoDB connected successfully");
+    console.log("MongoDB connected successfully to:", mongoose.connection.name);
 
     // 1. Seed Teams
     let teamsCreated = 0;
