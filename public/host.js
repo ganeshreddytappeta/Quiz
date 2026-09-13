@@ -435,12 +435,72 @@ function initSocket() {
     resetSidePanel(data);
   });
 
-  socket.on("team-status-update", (data) => {
-    renderBreakdown();
+  socket.on("timer-tick", (data) => {
+    const secs = data.timerSecondsLeft;
+    if (secs <= 5 && secs > 0) {
+      if (typeof HostSoundFX !== "undefined") HostSoundFX.tick();
+    }
+    if (dom.hostTimerDisplay) {
+      dom.hostTimerDisplay.textContent = `⏱️ ${secs}s`;
+    }
   });
 
   socket.on("live-answer-update", (data) => {
+    if (data.isFirstCorrect) {
+      if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = data.teamName;
+      if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = `${data.time}s`;
+      dom.firstAnswerWidget?.classList.add("pulse-glow");
+      setTimeout(() => dom.firstAnswerWidget?.classList.remove("pulse-glow"), 1000);
+    }
+    // Update local state for team
+    if (currentHostState && currentHostState.teams) {
+      const targetTeam = currentHostState.teams.find(t => t.teamName === data.teamName);
+      if (targetTeam) {
+        targetTeam.currentAnswer = data.answer;
+        targetTeam.hasAnswered = true;
+        targetTeam.currentAnswerTime = data.time;
+        targetTeam.currentResult = data.result;
+        targetTeam.isFirstCorrect = data.isFirstCorrect;
+        targetTeam.score = data.score;
+        targetTeam.totalTime = data.totalTime;
+      }
+    }
     renderBreakdown();
+    if (currentHostState) {
+      renderLiveTable(currentHostState.rankings, currentHostState.teams);
+    }
+  });
+
+  socket.on("team-status-update", (data) => {
+    renderBreakdown();
+    if (currentHostState) {
+      renderLiveTable(currentHostState.rankings, currentHostState.teams);
+    }
+  });
+
+  socket.on("answer-received", (data) => {
+    if (data && data.rankings && currentHostState) {
+      currentHostState.rankings = data.rankings;
+      renderLiveTable(data.rankings, currentHostState.teams);
+    }
+  });
+
+  socket.on("question-timeout", (data) => {
+    if (typeof HostSoundFX !== "undefined") HostSoundFX.roundEnd();
+    if (dom.hostPhaseLabel) {
+      dom.hostPhaseLabel.textContent = "⌛ Round Ended";
+    }
+    highlightCorrectOption(data.correctAnswer);
+    if (dom.hostSideCorrectAnswer) {
+      dom.hostSideCorrectAnswer.textContent = `Option ${data.correctAnswer}`;
+    }
+    if (data.rankings && currentHostState) {
+      currentHostState.rankings = data.rankings;
+    }
+    // Re-render table to reveal full choices and finalized rankings
+    if (currentHostState) {
+      renderLiveTable(data.rankings || currentHostState.rankings, currentHostState.teams);
+    }
   });
 
   socket.on("answer-revealed", (data) => {
@@ -698,7 +758,8 @@ function renderLiveTable(rankings, teams) {
   }
 
   dom.hostLiveTableBody.innerHTML = list.map((team, idx) => {
-    const rankNum = idx + 1;
+    const rankNum = team.rank || (idx + 1);
+    const rankDisplay = team.displayRank || (team.isTied ? `T-${rankNum}` : `${rankNum}`);
     const rankBadgeClass = rankNum === 1 ? "rank-1" : rankNum === 2 ? "rank-2" : rankNum === 3 ? "rank-3" : "rank-other";
 
     let statusBadge = `<span class="badge-status badge-waiting" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3);">⏳ Thinking...</span>`;
@@ -713,23 +774,43 @@ function renderLiveTable(rankings, teams) {
       resultBadge = `<span class="badge-status badge-wrong">✗ Incorrect</span>`;
     }
 
-    const answerPill = team.currentAnswer
-      ? `<span style="font-weight: 800; color: #fff; background: rgba(99, 102, 241, 0.25); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.4);">${team.currentAnswer}</span>`
-      : `<span style="color: var(--text-dim); font-size: 0.85rem;">-</span>`;
+    let answerPill = `<span style="color: var(--text-dim); font-size: 0.85rem;">-</span>`;
+    if (team.currentAnswer) {
+      if (projectorSafeMode && !currentHostState?.isAnswerRevealed && currentHostState?.state === "question") {
+        answerPill = `<span style="font-weight: 700; color: #34d399; background: rgba(16, 185, 129, 0.2); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4);">● Locked In</span>`;
+      } else {
+        answerPill = `<span style="font-weight: 800; color: #fff; background: rgba(99, 102, 241, 0.25); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.4);">${team.currentAnswer}</span>`;
+      }
+    }
 
+    const firstBadge = team.isFirstCorrect
+      ? `<span style="margin-left: 0.5rem; font-size: 0.75rem; background: #f59e0b; color: #000; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 4px;">⚡ 1st</span>`
+      : "";
+
+    const escapedName = (team.teamName || "").replace(/'/g, "\\'");
     const connStatus = team.connected
       ? `<span style="color: #34d399; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><span class="live-dot" style="width: 8px; height: 8px;"></span> Online</span>`
       : `<span style="color: #94a3b8; font-size: 0.85rem;">Offline</span>`;
 
+    const unlockBtn = `<button class="qm-action-btn" onclick="resetTeamSession('${escapedName}')" title="Unlock or reset login session for ${escapedName}" style="margin-left: 0.4rem; padding: 0.15rem 0.45rem; font-size: 0.72rem; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.12); color: #fca5a5; cursor: pointer;">🔓 Unlock</button>`;
+
     return `
       <tr>
-        <td><span class="rank-badge ${rankBadgeClass}">${rankNum}</span></td>
-        <td style="font-weight: 700; color: #fff;">${team.teamName}</td>
+        <td><span class="rank-badge ${rankBadgeClass}">${rankDisplay}</span></td>
+        <td style="font-weight: 700; color: #fff;">${team.teamName} ${firstBadge}</td>
         <td style="text-align: center;">${statusBadge}</td>
         <td style="text-align: center;">${answerPill}</td>
         <td style="text-align: center;">${resultBadge}</td>
-        <td style="text-align: center; font-weight: 800; font-size: 1.1rem; color: #38bdf8;">${team.score}</td>
-        <td>${connStatus}</td>
+        <td style="text-align: center;">
+          <span style="font-weight: 800; font-size: 1.1rem; color: #38bdf8;">${team.score}</span>
+          <div style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">${Number(team.totalTime || 0).toFixed(2)}s</div>
+        </td>
+        <td>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem;">
+            ${connStatus}
+            ${unlockBtn}
+          </div>
+        </td>
       </tr>
     `;
   }).join('');
@@ -744,42 +825,75 @@ function renderFinalScoreboard(data) {
   const winner = data.winner || scoreboard[0];
 
   if (dom.hostWinnerTeamName && winner) {
-    dom.hostWinnerTeamName.textContent = `${winner.teamName} (Score: ${winner.score} pts)`;
+    dom.hostWinnerTeamName.textContent = `${winner.teamName} (Score: ${winner.score} pts, ${Number(winner.totalTime || 0).toFixed(2)}s)`;
   }
 
-  // Top 3 Podium
+  // Top 3 Podium (graceful for 1, 2, or 3+ teams)
   if (dom.hostPodiumGrid && scoreboard.length > 0) {
-    const top3 = scoreboard.slice(0, 3);
-    const order = [1, 0, 2]; // 2nd, 1st, 3rd
-
-    dom.hostPodiumGrid.innerHTML = order.map(idx => {
-      const t = top3[idx];
-      if (!t) return "";
-      const pos = idx + 1;
-      const stepClass = pos === 1 ? "step-1" : pos === 2 ? "step-2" : "step-3";
-      const medal = pos === 1 ? "🥇" : pos === 2 ? "🥈" : "🥉";
-
-      return `
-        <div class="podium-step ${stepClass}">
-          <div class="podium-rank-icon">${medal}</div>
-          <div class="podium-team">${t.teamName}</div>
-          <div class="podium-score">${t.score} pts</div>
+    let podiumHtml = "";
+    if (scoreboard.length === 1) {
+      const first = scoreboard[0];
+      podiumHtml = `
+        <div class="podium-step step-1" style="grid-column: 1 / -1; max-width: 320px; margin: 0 auto;">
+          <div class="podium-rank-icon">🥇</div>
+          <div class="podium-team" style="font-size: 1.35rem; font-weight: 800; color: #fbbf24;">${first.teamName}</div>
+          <div class="podium-score">${first.score} pts</div>
+          <div class="podium-time">${Number(first.totalTime || 0).toFixed(2)}s total</div>
         </div>
       `;
-    }).join('');
+    } else if (scoreboard.length === 2) {
+      const first = scoreboard[0];
+      const second = scoreboard[1];
+      const isTie1 = first.score === second.score && Math.abs(first.totalTime - second.totalTime) < 0.01;
+      podiumHtml = `
+        <div class="podium-step ${isTie1 ? 'step-1' : 'step-2'}">
+          <div class="podium-rank-icon">${isTie1 ? '🥇' : '🥈'}</div>
+          <div class="podium-team">${second.teamName}</div>
+          <div class="podium-score">${second.score} pts</div>
+          <div class="podium-time">${Number(second.totalTime || 0).toFixed(2)}s total</div>
+        </div>
+        <div class="podium-step step-1">
+          <div class="podium-rank-icon">🥇</div>
+          <div class="podium-team" style="font-size: 1.35rem; font-weight: 800; color: #fbbf24;">${first.teamName}</div>
+          <div class="podium-score">${first.score} pts</div>
+          <div class="podium-time">${Number(first.totalTime || 0).toFixed(2)}s total</div>
+        </div>
+      `;
+    } else {
+      const top3 = scoreboard.slice(0, 3);
+      const order = [1, 0, 2]; // 2nd, 1st, 3rd display layout
+      podiumHtml = order.map(idx => {
+        const t = top3[idx];
+        if (!t) return "";
+        const rankNum = t.rank || (idx + 1);
+        const stepClass = rankNum === 1 ? "step-1" : rankNum === 2 ? "step-2" : "step-3";
+        const medal = rankNum === 1 ? "🥇" : rankNum === 2 ? "🥈" : "🥉";
+
+        return `
+          <div class="podium-step ${stepClass}">
+            <div class="podium-rank-icon">${medal}</div>
+            <div class="podium-team" style="${rankNum === 1 ? 'font-size: 1.3rem; font-weight: 800; color: #fbbf24;' : ''}">${t.teamName}</div>
+            <div class="podium-score">${t.score} pts</div>
+            <div class="podium-time">${Number(t.totalTime || 0).toFixed(2)}s total</div>
+          </div>
+        `;
+      }).join('');
+    }
+    dom.hostPodiumGrid.innerHTML = podiumHtml;
   }
 
   // Complete final standings
   if (dom.hostFinalTableBody) {
     dom.hostFinalTableBody.innerHTML = scoreboard.map((t, idx) => {
-      const rankNum = idx + 1;
+      const rankNum = t.rank || (idx + 1);
+      const rankDisplay = t.displayRank || (t.isTied ? `T-${rankNum}` : `${rankNum}`);
       const rankClass = rankNum === 1 ? "rank-1" : rankNum === 2 ? "rank-2" : rankNum === 3 ? "rank-3" : "rank-other";
       return `
         <tr>
-          <td><span class="rank-badge ${rankClass}">${rankNum}</span></td>
+          <td><span class="rank-badge ${rankClass}">${rankDisplay}</span></td>
           <td style="font-weight: 700; color: #fff;">${t.teamName}</td>
           <td style="font-weight: 800; color: #38bdf8; font-size: 1.1rem; text-align: center;">${t.score}</td>
-          <td style="font-weight: 800; color: #a7f3d0; text-align: center;">${t.score} pts</td>
+          <td style="font-weight: 800; color: #a7f3d0; text-align: center;">${t.score} pts <div style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">(${Number(t.totalTime || 0).toFixed(2)}s)</div></td>
         </tr>
       `;
     }).join('');
