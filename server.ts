@@ -366,12 +366,17 @@ async function syncMongoData() {
 connectToMongoDB();
 
 let activeTimer: NodeJS.Timeout | null = null;
+let earlyTimeoutHandle: NodeJS.Timeout | null = null;
 let timerSecondsLeft = 0;
 
 function clearCurrentTimer() {
   if (activeTimer) {
     clearInterval(activeTimer);
     activeTimer = null;
+  }
+  if (earlyTimeoutHandle) {
+    clearTimeout(earlyTimeoutHandle);
+    earlyTimeoutHandle = null;
   }
 }
 
@@ -613,17 +618,20 @@ function checkAllAnswersSubmitted() {
     (t) => t.currentAnswer !== null && t.currentAnswer !== undefined
   );
 
-  if (allSubmitted && quizState.state === "question") {
+  if (allSubmitted && quizState.state === "question" && !earlyTimeoutHandle) {
     clearCurrentTimer();
-    setTimeout(() => {
+    earlyTimeoutHandle = setTimeout(() => {
+      earlyTimeoutHandle = null;
       handleQuestionTimeout();
-    }, 1500);
+    }, 1200);
   }
 }
 
 // Flow: Handle Question Timeout
 async function handleQuestionTimeout() {
   clearCurrentTimer();
+  if (quizState.state !== "question") return;
+  quizState.state = "transition";
   const currentQ = activeQuestions[quizState.currentQuestionIndex];
   if (!currentQ) return;
 
@@ -796,7 +804,22 @@ async function resetQuiz() {
 function findTeamByCredentials(inputName: string, inputCode: string): { team: TeamConfig; canonicalName: string } | null {
   const trimmedName = (inputName || "").trim();
   const trimmedCode = (inputCode || "").trim().toUpperCase();
-  if (!trimmedName || !trimmedCode) return null;
+  if (!trimmedCode) return null;
+
+  // Single-passcode login if team name is blank
+  if (!trimmedName && trimmedCode) {
+    const normalizedInput = trimmedCode.replace(/\s+/g, "");
+    const codeMatch = activeTeams.find(
+      (t) => t.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput
+    ) || DEFAULT_TEAMS.find(
+      (dt) => dt.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput
+    );
+    if (codeMatch) {
+      const canonical = activeTeams.find(t => t.id === codeMatch.id) || codeMatch;
+      return { team: canonical, canonicalName: canonical.name };
+    }
+    return null;
+  }
 
   // 1. Direct match by active team name
   let target = activeTeams.find(
@@ -1296,6 +1319,12 @@ function formatDuration(seconds: number): string {
 
 // REST API Middlewares
 app.use(express.json());
+
+// Expose live state to REST sub-routers
+app.locals.quizState = quizState;
+app.locals.activeQuestions = activeQuestions;
+app.locals.timerSecondsLeft = timerSecondsLeft;
+app.locals.calculateRankings = calculateRankings;
 
 // Mount User Requested REST Routes
 app.use("/api/teams", teamRoutes);
@@ -2113,15 +2142,15 @@ function sendStaticHtml(res: express.Response, fallbackFilename: string, ...cand
 
 // Direct routes
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+});
+
+app.get(["/landing", "/index.html"], (req, res) => {
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
 });
 
 app.get(["/team", "/team.html"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
-});
-
-app.get("/index.html", (req, res) => {
-  res.redirect("/");
 });
 
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {

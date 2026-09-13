@@ -1,6 +1,72 @@
 // QUIZ ARENA - Team Client Script
 // Handles state transitions, Socket.IO communication, and answer submissions
 
+// Web Audio Effects Synthesizer (No external asset files required)
+const SoundFX = {
+  ctx: null,
+  enabled: localStorage.getItem("quiz_sound_muted") !== "true",
+
+  init() {
+    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+  },
+
+  resume() {
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
+  },
+
+  playTone(freq, type = "sine", duration = 0.15, vol = 0.2) {
+    if (!this.enabled) return;
+    try {
+      this.init();
+      this.resume();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch (e) {}
+  },
+
+  tick() {
+    this.playTone(880, "triangle", 0.05, 0.12);
+  },
+
+  submit() {
+    this.playTone(523.25, "sine", 0.09, 0.2);
+    setTimeout(() => this.playTone(659.25, "sine", 0.14, 0.2), 60);
+  },
+
+  correct() {
+    this.playTone(523.25, "triangle", 0.15, 0.25);
+    setTimeout(() => this.playTone(659.25, "triangle", 0.15, 0.25), 100);
+    setTimeout(() => this.playTone(783.99, "triangle", 0.25, 0.3), 200);
+    setTimeout(() => this.playTone(1046.50, "triangle", 0.35, 0.35), 300);
+  },
+
+  wrong() {
+    this.playTone(220, "sawtooth", 0.18, 0.25);
+    setTimeout(() => this.playTone(185, "sawtooth", 0.25, 0.25), 140);
+  },
+
+  fanfare() {
+    const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      setTimeout(() => this.playTone(f, "triangle", 0.22, 0.3), i * 130);
+    });
+  }
+};
+
 let activeTeamsList = [
   { name: "Team 1", code: "T1A7" },
   { name: "Team 2", code: "T2B8" },
@@ -18,6 +84,7 @@ let socket = null;
 let currentTeamName = null;
 let currentSessionToken = null;
 let currentQuestionData = null;
+let currentSelectedOption = null;
 let hasSubmittedCurrentQuestion = false;
 let totalQuestionsCount = 10;
 
@@ -214,6 +281,11 @@ function initSocket() {
   // Timer Tick
   socket.on("timer-tick", (data) => {
     const left = data.timerSecondsLeft;
+    // Sound tick on final 5 seconds
+    if (left <= 5 && left > 0) {
+      SoundFX.tick();
+    }
+
     // Update Question timer if in question view
     if (!views.question?.classList.contains("hidden")) {
       if (elements.questionTimerSeconds) {
@@ -247,8 +319,10 @@ function initSocket() {
   socket.on("answer-received", (res) => {
     if (res.success) {
       hasSubmittedCurrentQuestion = true;
+      currentSelectedOption = res.selectedAnswer;
       if (elements.submissionFeedbackCard) {
         elements.submissionFeedbackCard.classList.remove("hidden");
+        elements.submissionFeedbackCard.classList.remove("card-correct", "card-wrong");
       }
       if (elements.submittedOptionLabel && currentQuestionData) {
         const optText = currentQuestionData.options[res.selectedAnswer] || "";
@@ -260,19 +334,72 @@ function initSocket() {
     }
   });
 
-  // Question timeout / ended
+  // Question timeout / ended - Reveal Correct / Wrong Feedback!
   socket.on("question-timeout", (data) => {
-    if (!hasSubmittedCurrentQuestion) {
-      // Disable options and show No Answer
-      disableAllOptionButtons();
+    disableAllOptionButtons();
+    const correctLetter = data.correctAnswer;
+
+    // Apply visual button highlights
+    ["A", "B", "C", "D"].forEach((letter) => {
+      const btn = elements.optionBtns[letter];
+      if (!btn) return;
+      btn.classList.remove("selected");
+      if (letter === correctLetter) {
+        btn.classList.add("is-correct");
+      } else if (letter === currentSelectedOption) {
+        btn.classList.add("is-wrong");
+      } else {
+        btn.classList.add("dimmed");
+      }
+    });
+
+    if (elements.submissionFeedbackCard) {
+      elements.submissionFeedbackCard.classList.remove("hidden");
+    }
+
+    if (hasSubmittedCurrentQuestion && currentSelectedOption) {
+      const isCorrect = currentSelectedOption === correctLetter;
+      if (isCorrect) {
+        SoundFX.correct();
+        if (elements.submissionFeedbackCard) {
+          elements.submissionFeedbackCard.classList.add("card-correct");
+          elements.submissionFeedbackCard.classList.remove("card-wrong");
+          const titleEl = elements.submissionFeedbackCard.querySelector(".submission-title");
+          const waitEl = elements.submissionFeedbackCard.querySelector(".submission-waiting");
+          if (titleEl) titleEl.textContent = "🎉 Correct Answer! (+1 Point)";
+          if (waitEl) waitEl.textContent = "⚡ Standings updating... Next question soon!";
+        }
+      } else {
+        SoundFX.wrong();
+        if (elements.submissionFeedbackCard) {
+          elements.submissionFeedbackCard.classList.add("card-wrong");
+          elements.submissionFeedbackCard.classList.remove("card-correct");
+          const titleEl = elements.submissionFeedbackCard.querySelector(".submission-title");
+          const detailEl = elements.submissionFeedbackCard.querySelector(".submission-detail");
+          const waitEl = elements.submissionFeedbackCard.querySelector(".submission-waiting");
+          if (titleEl) titleEl.textContent = "❌ Incorrect";
+          if (detailEl && currentQuestionData) {
+            const correctText = currentQuestionData.options[correctLetter] || "";
+            detailEl.innerHTML = `You selected: <strong>${currentSelectedOption}</strong> • Correct: <strong style="color: #34d399;">${correctLetter}. ${correctText}</strong>`;
+          }
+          if (waitEl) waitEl.textContent = "⚡ Keep going! Next question starting soon...";
+        }
+      }
+    } else {
+      // Team did not submit in time
+      SoundFX.wrong();
       if (elements.submissionFeedbackCard) {
-        elements.submissionFeedbackCard.classList.remove("hidden");
-      }
-      if (elements.submittedOptionLabel) {
-        elements.submittedOptionLabel.textContent = "Time Expired - No Answer Recorded";
-      }
-      if (elements.submittedTimeLabel) {
-        elements.submittedTimeLabel.textContent = "Time Taken: 30:00 (Max)";
+        elements.submissionFeedbackCard.classList.add("card-wrong");
+        elements.submissionFeedbackCard.classList.remove("card-correct");
+        const titleEl = elements.submissionFeedbackCard.querySelector(".submission-title");
+        const detailEl = elements.submissionFeedbackCard.querySelector(".submission-detail");
+        const timeEl = document.getElementById("submittedTimeLabel");
+        if (titleEl) titleEl.textContent = "⌛ Time Expired!";
+        if (detailEl && currentQuestionData) {
+          const correctText = currentQuestionData.options[correctLetter] || "";
+          detailEl.innerHTML = `No answer submitted • Correct answer was: <strong style="color: #34d399;">${correctLetter}. ${correctText}</strong>`;
+        }
+        if (timeEl) timeEl.textContent = "Time Taken: 30:00 (Max)";
       }
     }
   });
@@ -305,6 +432,17 @@ function initSocket() {
 
   // Quiz Reset
   socket.on("quiz-reset", () => {
+    currentQuestionData = null;
+    currentSelectedOption = null;
+    hasSubmittedCurrentQuestion = false;
+    resetOptionButtonsUI();
+    if (elements.submissionFeedbackCard) {
+      elements.submissionFeedbackCard.classList.add("hidden");
+      elements.submissionFeedbackCard.classList.remove("card-correct", "card-wrong");
+    }
+    const canvas = document.getElementById("confettiCanvas");
+    if (canvas) canvas.classList.add("hidden");
+
     if (currentTeamName) {
       showView("waitingRoom");
     } else {
@@ -407,9 +545,22 @@ function handleServerState(stateData) {
   }
 }
 
+function resetOptionButtonsUI() {
+  ["A", "B", "C", "D"].forEach((letter) => {
+    const btn = elements.optionBtns[letter];
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove("selected", "is-correct", "is-wrong", "dimmed");
+    }
+  });
+}
+
 // Populate Question View
 function showQuestionScreen(data) {
   showView("question");
+  currentSelectedOption = null;
+  resetOptionButtonsUI();
+
   if (elements.questionNumberMeta) {
     elements.questionNumberMeta.textContent = `Question ${data.questionNumber} of ${data.totalQuestions}`;
   }
@@ -424,19 +575,17 @@ function showQuestionScreen(data) {
   // Options
   ["A", "B", "C", "D"].forEach(letter => {
     const textEl = elements.optionTexts[letter];
-    const btnEl = elements.optionBtns[letter];
     if (textEl && data.options) {
       textEl.textContent = data.options[letter] || "";
     }
-    if (btnEl) {
-      btnEl.disabled = false;
-      btnEl.classList.remove("selected");
-    }
   });
 
-  // Hide submission confirmation
+  // Hide and reset submission confirmation
   if (elements.submissionFeedbackCard) {
     elements.submissionFeedbackCard.classList.add("hidden");
+    elements.submissionFeedbackCard.classList.remove("card-correct", "card-wrong");
+    const waitEl = elements.submissionFeedbackCard.querySelector(".submission-waiting");
+    if (waitEl) waitEl.textContent = "⏳ Waiting for other teams to submit...";
   }
 }
 
@@ -464,8 +613,10 @@ function disableAllOptionButtons() {
 function submitAnswer(optionLetter) {
   if (hasSubmittedCurrentQuestion || !socket) return;
   hasSubmittedCurrentQuestion = true;
+  currentSelectedOption = optionLetter;
 
-  // Immediate UI feedback
+  // Audio & UI feedback
+  SoundFX.submit();
   selectOptionUI(optionLetter);
   disableAllOptionButtons();
 
@@ -597,16 +748,53 @@ function startConfettiAnimation() {
   draw();
 }
 
+function setupSoundToggle() {
+  const btn = document.getElementById("soundToggleBtn");
+  const icon = document.getElementById("soundIcon");
+  const text = document.getElementById("soundText");
+  if (!btn) return;
+
+  function update() {
+    if (SoundFX.enabled) {
+      if (icon) icon.textContent = "🔊";
+      if (text) text.textContent = "Sound On";
+      btn.style.opacity = "1";
+    } else {
+      if (icon) icon.textContent = "🔇";
+      if (text) text.textContent = "Muted";
+      btn.style.opacity = "0.6";
+    }
+  }
+
+  btn.addEventListener("click", () => {
+    SoundFX.init();
+    SoundFX.enabled = !SoundFX.enabled;
+    localStorage.setItem("quiz_sound_muted", (!SoundFX.enabled).toString());
+    update();
+    if (SoundFX.enabled) SoundFX.submit();
+  });
+
+  update();
+}
+
+function populateTeamDatalist(teams) {
+  const datalist = document.getElementById("registeredTeamsList");
+  if (!datalist || !Array.isArray(teams)) return;
+  datalist.innerHTML = teams.map((t) => `<option value="${t.name || t.teamName}">`).join("");
+}
+
 // Event Listeners Initialization
 function initTeamApp() {
   initSocket();
+  setupSoundToggle();
 
-  // Pre-load active teams list silently for validation
+  // Pre-load active teams list silently for validation and datalist
   fetch("/api/teams")
     .then(res => res.json())
     .then(data => {
       if (data && data.teams && Array.isArray(data.teams)) {
         activeTeamsList = data.teams;
+        populateTeamDatalist(data.teams);
       }
     })
     .catch(() => {});
@@ -635,7 +823,7 @@ function initTeamApp() {
     const submitBtn = document.getElementById("loginSubmitBtn");
     const feedbackEl = document.getElementById("loginStatusFeedback");
 
-    if (!name || !rawCode) return;
+    if (!rawCode) return;
 
     if (feedbackEl) {
       feedbackEl.classList.add("hidden");

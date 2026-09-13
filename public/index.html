@@ -40,14 +40,30 @@
         Welcome to the ultimate real-time arena. Test your speed, accuracy, and team synergy in a head-to-head live competition powered by authoritative real-time synchronization.
       </p>
 
-      <div class="hero-actions">
+      <div class="hero-actions" style="margin-bottom: 1.5rem;">
         <a href="/team.html" class="btn-primary" id="joinQuizBtn" style="font-size: 1.15rem; padding: 1rem 2.25rem;">
-          🚀 Join Quiz Now
+          🚀 Join Quiz Arena
         </a>
         <a href="/admin.html" class="btn-secondary" id="hostArenaBtn" style="font-size: 1.15rem; padding: 1rem 2rem;">
           🔐 Admin Portal & Questions
         </a>
       </div>
+
+      <!-- Quick Code Jump In Form -->
+      <form id="quickJoinForm" style="display: inline-flex; gap: 0.5rem; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(99, 102, 241, 0.35); padding: 0.5rem 0.85rem; border-radius: var(--radius-pill); max-width: 440px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);">
+        <span style="font-size: 1.2rem;">🔑</span>
+        <input 
+          type="text" 
+          id="quickCodeInput" 
+          placeholder="Enter Team Passcode..." 
+          style="background: transparent; border: none; color: #fff; font-size: 0.95rem; font-weight: 600; outline: none; width: 180px; letter-spacing: 0.05em;" 
+          required 
+          autocomplete="off"
+        />
+        <button type="submit" class="btn-primary" style="padding: 0.45rem 1.15rem; font-size: 0.85rem; border-radius: var(--radius-pill); margin: 0;">
+          Jump In →
+        </button>
+      </form>
     </div>
 
     <!-- Feature Grid -->

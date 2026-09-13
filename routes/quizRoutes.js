@@ -18,6 +18,21 @@ router.get("/current", async (req, res) => {
       });
     }
 
+    const state = req.app.locals.quizState;
+    if (state) {
+      return res.json({
+        success: true,
+        source: "memory_live",
+        quiz: {
+          quizName: "Quiz Arena",
+          status: state.state,
+          currentQuestion: state.currentQuestionIndex + 1,
+          totalQuestions: req.app.locals.activeQuestions ? req.app.locals.activeQuestions.length : 10,
+          timerSecondsLeft: req.app.locals.timerSecondsLeft || 0
+        }
+      });
+    }
+
     return res.json({
       success: true,
       source: "memory_fallback",

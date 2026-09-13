@@ -1,6 +1,67 @@
 // QUIZ ARENA - Admin Dashboard & Live Projector Script
 // Features: Admin Authentication Gate, Live Host Controls, Question CRUD Manager, Team Session Management
 
+// Web Audio Effects Synthesizer for Host & Projector Arena
+const HostSoundFX = {
+  ctx: null,
+  enabled: localStorage.getItem("quiz_host_sound_muted") !== "true",
+
+  init() {
+    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+  },
+
+  resume() {
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
+  },
+
+  playTone(freq, type = "sine", duration = 0.15, vol = 0.22) {
+    if (!this.enabled) return;
+    try {
+      this.init();
+      this.resume();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch (e) {}
+  },
+
+  tick() {
+    this.playTone(880, "triangle", 0.05, 0.12);
+  },
+
+  questionStart() {
+    this.playTone(440, "sine", 0.12, 0.25);
+    setTimeout(() => this.playTone(880, "sine", 0.2, 0.3), 100);
+  },
+
+  roundEnd() {
+    this.playTone(330, "triangle", 0.3, 0.25);
+    setTimeout(() => this.playTone(440, "triangle", 0.4, 0.3), 120);
+  },
+
+  fanfare() {
+    const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      setTimeout(() => this.playTone(f, "triangle", 0.22, 0.3), i * 130);
+    });
+  }
+};
+
+let projectorSafeMode = localStorage.getItem("quiz_projector_safe") !== "false";
+
 let socket = null;
 let currentHostState = null;
 let adminToken = localStorage.getItem("quiz_admin_token") || null;
@@ -18,6 +79,10 @@ const dom = {
   adminLogoutBtn: document.getElementById("adminLogoutBtn"),
   adminSecondaryLogoutBtn: document.getElementById("adminSecondaryLogoutBtn"),
   toggleFullscreenBtn: document.getElementById("toggleFullscreenBtn"),
+  btnToggleProjectorMode: document.getElementById("btnToggleProjectorMode"),
+  hostSoundToggleBtn: document.getElementById("hostSoundToggleBtn"),
+  hostSoundIcon: document.getElementById("hostSoundIcon"),
+  hostSoundText: document.getElementById("hostSoundText"),
 
   // Tabs
   tabBtnArena: document.getElementById("tabBtnArena"),
@@ -436,12 +501,16 @@ function initSocket() {
   });
 
   socket.on("question-start", (data) => {
+    HostSoundFX.questionStart();
     updateQuestionDisplay(data);
     resetSidePanel(data);
   });
 
   socket.on("timer-tick", (data) => {
     const secs = data.timerSecondsLeft;
+    if (secs <= 5 && secs > 0) {
+      HostSoundFX.tick();
+    }
     if (dom.hostTimerDisplay) {
       dom.hostTimerDisplay.textContent = `⏱️ ${secs}s`;
     }
@@ -458,12 +527,17 @@ function initSocket() {
   });
 
   socket.on("question-timeout", (data) => {
+    HostSoundFX.roundEnd();
     if (dom.hostPhaseLabel) {
       dom.hostPhaseLabel.textContent = "⌛ Round Ended (5s Transition to Next)";
     }
     highlightCorrectOption(data.correctAnswer);
     if (dom.hostSideCorrectAnswer) {
       dom.hostSideCorrectAnswer.textContent = `Option ${data.correctAnswer}`;
+    }
+    // Re-render table to reveal full choices
+    if (currentHostState) {
+      renderLiveTable(data.rankings || currentHostState.rankings, currentHostState.teams);
     }
   });
 
@@ -476,6 +550,7 @@ function initSocket() {
   });
 
   socket.on("quiz-finished", (data) => {
+    HostSoundFX.fanfare();
     renderFinalScoreboard(data);
     startConfettiAnimation();
   });
@@ -485,6 +560,10 @@ function initSocket() {
     if (dom.hostActiveGrid) dom.hostActiveGrid.classList.remove("hidden");
     if (dom.btnStartQuiz) dom.btnStartQuiz.disabled = false;
     if (dom.btnNextQuestion) dom.btnNextQuestion.disabled = true;
+    if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = "Waiting...";
+    if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = "--:--";
+    if (dom.hostSideCorrectAnswer) dom.hostSideCorrectAnswer.textContent = "-";
+    resetOptionButtons();
     showToast("Quiz has been reset to lobby.", "info");
   });
 }
@@ -572,10 +651,14 @@ function renderAll(state) {
     if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = "--:--";
   }
 
-  // 6. Correct Answer Display
-  if (state.currentQuestion?.correctAnswer && state.state === "question") {
+  // 6. Correct Answer Display (Respect Projector Safe Mode)
+  if (state.currentQuestion?.correctAnswer) {
     if (dom.hostSideCorrectAnswer) {
-      dom.hostSideCorrectAnswer.textContent = `Option ${state.currentQuestion.correctAnswer}`;
+      if (projectorSafeMode && state.state === "question") {
+        dom.hostSideCorrectAnswer.innerHTML = `<span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600;">🔒 Hidden until Timeout</span>`;
+      } else {
+        dom.hostSideCorrectAnswer.textContent = `Option ${state.currentQuestion.correctAnswer}`;
+      }
     }
   }
 
@@ -672,22 +755,36 @@ function renderLiveTable(rankings, teams) {
     return;
   }
 
+  const isRoundActive = currentHostState?.state === "question";
+
   dom.hostLiveTableBody.innerHTML = list.map((team, idx) => {
     const rankNum = idx + 1;
     const rankBadgeClass = rankNum === 1 ? "rank-1" : rankNum === 2 ? "rank-2" : rankNum === 3 ? "rank-3" : "rank-other";
 
     let resultBadge = `<span class="badge-status badge-waiting">Thinking...</span>`;
-    if (team.currentResult === "correct") {
-      resultBadge = `<span class="badge-status badge-correct">✓ Correct</span>`;
-    } else if (team.currentResult === "wrong") {
-      resultBadge = `<span class="badge-status badge-wrong">✗ Incorrect</span>`;
-    } else if (team.currentResult === "no-answer") {
-      resultBadge = `<span class="badge-status badge-wrong">⌛ Time Out</span>`;
-    }
+    let answerPill = `<span style="color: var(--text-dim); font-size: 0.85rem;">-</span>`;
+    let firstBadge = "";
 
-    const answerPill = team.currentAnswer
-      ? `<span style="font-weight: 800; color: #fff; background: rgba(99, 102, 241, 0.25); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.4);">${team.currentAnswer}</span>`
-      : `<span style="color: var(--text-dim); font-size: 0.85rem;">-</span>`;
+    if (team.currentAnswer) {
+      if (projectorSafeMode && isRoundActive) {
+        // Fair-play mask: prevent audience/teams from copying answers
+        answerPill = `<span style="font-weight: 700; color: #34d399; background: rgba(16, 185, 129, 0.2); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4);">● Locked In</span>`;
+        resultBadge = `<span class="badge-status" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">✓ Submitted</span>`;
+      } else {
+        answerPill = `<span style="font-weight: 800; color: #fff; background: rgba(99, 102, 241, 0.25); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.4);">${team.currentAnswer}</span>`;
+        if (team.currentResult === "correct") {
+          resultBadge = `<span class="badge-status badge-correct">✓ Correct</span>`;
+        } else if (team.currentResult === "wrong") {
+          resultBadge = `<span class="badge-status badge-wrong">✗ Incorrect</span>`;
+        } else if (team.currentResult === "no-answer") {
+          resultBadge = `<span class="badge-status badge-wrong">⌛ Time Out</span>`;
+        }
+
+        if (team.isFirstCorrect) {
+          firstBadge = `<span style="margin-left: 0.5rem; font-size: 0.75rem; background: #f59e0b; color: #000; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 4px;">⚡ 1st</span>`;
+        }
+      }
+    }
 
     const timeDisplay = team.currentAnswerTime !== null && team.currentAnswerTime !== undefined
       ? `${team.currentAnswerTime}s`
@@ -696,10 +793,6 @@ function renderLiveTable(rankings, teams) {
     const connStatus = team.connected
       ? `<span style="color: #34d399; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><span class="live-dot" style="width: 8px; height: 8px;"></span> Online</span>`
       : `<span style="color: #94a3b8; font-size: 0.85rem;">Offline</span>`;
-
-    const firstBadge = team.isFirstCorrect
-      ? `<span style="margin-left: 0.5rem; font-size: 0.75rem; background: #f59e0b; color: #000; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 4px;">⚡ 1st</span>`
-      : "";
 
     return `
       <tr>
@@ -1538,14 +1631,64 @@ function initHostApp() {
   setupTabs();
   checkAuthOnStartup();
 
-  // Host Game Controls Listeners (WebSocket + REST Fallback)
+  function setupHostSoundToggle() {
+    if (!dom.hostSoundToggleBtn) return;
+    function update() {
+      if (HostSoundFX.enabled) {
+        if (dom.hostSoundIcon) dom.hostSoundIcon.textContent = "🔊";
+        if (dom.hostSoundText) dom.hostSoundText.textContent = "Sound On";
+        dom.hostSoundToggleBtn.style.opacity = "1";
+      } else {
+        if (dom.hostSoundIcon) dom.hostSoundIcon.textContent = "🔇";
+        if (dom.hostSoundText) dom.hostSoundText.textContent = "Muted";
+        dom.hostSoundToggleBtn.style.opacity = "0.6";
+      }
+    }
+    dom.hostSoundToggleBtn.addEventListener("click", () => {
+      HostSoundFX.init();
+      HostSoundFX.enabled = !HostSoundFX.enabled;
+      localStorage.setItem("quiz_host_sound_muted", (!HostSoundFX.enabled).toString());
+      update();
+      if (HostSoundFX.enabled) HostSoundFX.questionStart();
+    });
+    update();
+  }
+
+  function setupProjectorModeToggle() {
+    if (!dom.btnToggleProjectorMode) return;
+    function update() {
+      if (projectorSafeMode) {
+        dom.btnToggleProjectorMode.textContent = "🛡️ Projector Safe: ON";
+        dom.btnToggleProjectorMode.classList.remove("is-revealed");
+        dom.btnToggleProjectorMode.title = "Contestant answers masked during round countdown";
+      } else {
+        dom.btnToggleProjectorMode.textContent = "👁️ Reveal Mode: ALL";
+        dom.btnToggleProjectorMode.classList.add("is-revealed");
+        dom.btnToggleProjectorMode.title = "Live answers visible immediately (Host Private View)";
+      }
+    }
+    dom.btnToggleProjectorMode.addEventListener("click", () => {
+      projectorSafeMode = !projectorSafeMode;
+      localStorage.setItem("quiz_projector_safe", projectorSafeMode.toString());
+      update();
+      if (currentHostState) {
+        renderAll(currentHostState);
+      }
+    });
+    update();
+  }
+
+  setupHostSoundToggle();
+  setupProjectorModeToggle();
+
+  // Host Game Controls Listeners (Single-Channel to Prevent Double Advance!)
   dom.btnStartQuiz?.addEventListener("click", async () => {
     if (dom.btnStartQuiz.disabled) return;
     dom.btnStartQuiz.disabled = true;
+    HostSoundFX.init();
     if (socket && socket.connected) {
       socket.emit("quiz-start");
-    }
-    if (adminToken) {
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/start", {
           method: "POST",
@@ -1560,10 +1703,14 @@ function initHostApp() {
 
   dom.btnNextQuestion?.addEventListener("click", async () => {
     if (dom.btnNextQuestion.disabled) return;
+    dom.btnNextQuestion.disabled = true;
+    setTimeout(() => {
+      if (dom.btnNextQuestion) dom.btnNextQuestion.disabled = false;
+    }, 1200);
+
     if (socket && socket.connected) {
       socket.emit("next-question");
-    }
-    if (adminToken) {
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/next", {
           method: "POST",
@@ -1584,8 +1731,7 @@ function initHostApp() {
       onConfirm: async () => {
         if (socket && socket.connected) {
           socket.emit("end-quiz");
-        }
-        if (adminToken) {
+        } else if (adminToken) {
           try {
             await fetch("/api/admin/quiz/end", {
               method: "POST",
@@ -1608,8 +1754,7 @@ function initHostApp() {
       onConfirm: async () => {
         if (socket && socket.connected) {
           socket.emit("reset-quiz");
-        }
-        if (adminToken) {
+        } else if (adminToken) {
           try {
             await fetch("/api/admin/quiz/reset", {
               method: "POST",
@@ -1625,7 +1770,14 @@ function initHostApp() {
   });
 
   dom.btnRestartAfterFinish?.addEventListener("click", () => {
-    if (socket && socket.connected) socket.emit("reset-quiz");
+    if (socket && socket.connected) {
+      socket.emit("reset-quiz");
+    } else if (adminToken) {
+      fetch("/api/admin/quiz/reset", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${adminToken}` }
+      }).catch(() => {});
+    }
   });
 
   dom.toggleFullscreenBtn?.addEventListener("click", toggleFullscreen);
