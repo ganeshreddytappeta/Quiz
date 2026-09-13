@@ -36,14 +36,18 @@ const dom = {
   hostDatabaseText: document.getElementById("hostDatabaseText"),
   hostDatabaseDot: document.getElementById("hostDatabaseDot"),
   btnStartQuiz: document.getElementById("btnStartQuiz"),
+  btnRevealAnswer: document.getElementById("btnRevealAnswer"),
   btnNextQuestion: document.getElementById("btnNextQuestion"),
+  btnFinishQuiz: document.getElementById("btnFinishQuiz"),
   btnEndQuiz: document.getElementById("btnEndQuiz"),
   btnResetQuiz: document.getElementById("btnResetQuiz"),
 
   // Active Question Display
   hostQuestionCard: document.getElementById("hostQuestionCard"),
   hostQuestionNumberMeta: document.getElementById("hostQuestionNumberMeta"),
-  hostTimerDisplay: document.getElementById("hostTimerDisplay"),
+  hostAnsweredCounterBox: document.getElementById("hostAnsweredCounterBox"),
+  hostAnsweredRatio: document.getElementById("hostAnsweredRatio"),
+  allTeamsAnsweredBanner: document.getElementById("allTeamsAnsweredBanner"),
   hostQuestionText: document.getElementById("hostQuestionText"),
   hostOptA: document.getElementById("hostOptA"),
   hostOptB: document.getElementById("hostOptB"),
@@ -56,12 +60,12 @@ const dom = {
 
   // Table
   hostLiveTableBody: document.getElementById("hostLiveTableBody"),
+  hostLiveAnswerSummary: document.getElementById("hostLiveAnswerSummary"),
 
   // Side Panel
   hostSideCorrectAnswer: document.getElementById("hostSideCorrectAnswer"),
-  hostFirstTeamName: document.getElementById("hostFirstTeamName"),
-  hostFirstTeamTime: document.getElementById("hostFirstTeamTime"),
-  firstAnswerWidget: document.getElementById("firstAnswerWidget"),
+  hostStatusSubtext: document.getElementById("hostStatusSubtext"),
+  progressStatusWidget: document.getElementById("progressStatusWidget"),
   countOptA: document.getElementById("countOptA"),
   countOptB: document.getElementById("countOptB"),
   countOptC: document.getElementById("countOptC"),
@@ -426,52 +430,33 @@ function initSocket() {
     }
   });
 
-  socket.on("show-instructions", (data) => {
-    if (dom.hostPhaseLabel) {
-      dom.hostPhaseLabel.textContent = `📋 Instructions (${data.duration}s Countdown)`;
-    }
-    if (dom.hostQuestionText) {
-      dom.hostQuestionText.textContent = "Showing rules and 5-second countdown to all teams...";
-    }
-  });
-
   socket.on("question-start", (data) => {
     updateQuestionDisplay(data);
     resetSidePanel(data);
   });
 
-  socket.on("timer-tick", (data) => {
-    const secs = data.timerSecondsLeft;
-    if (dom.hostTimerDisplay) {
-      dom.hostTimerDisplay.textContent = `⏱️ ${secs}s`;
-    }
-  });
-
-  socket.on("live-answer-update", (data) => {
-    if (data.isFirstCorrect) {
-      if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = data.teamName;
-      if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = `${data.time}s`;
-      dom.firstAnswerWidget?.classList.add("pulse-glow");
-      setTimeout(() => dom.firstAnswerWidget?.classList.remove("pulse-glow"), 1000);
-    }
+  socket.on("team-status-update", (data) => {
     renderBreakdown();
   });
 
-  socket.on("question-timeout", (data) => {
-    if (dom.hostPhaseLabel) {
-      dom.hostPhaseLabel.textContent = "⌛ Round Ended (5s Transition to Next)";
-    }
-    highlightCorrectOption(data.correctAnswer);
-    if (dom.hostSideCorrectAnswer) {
-      dom.hostSideCorrectAnswer.textContent = `Option ${data.correctAnswer}`;
-    }
+  socket.on("live-answer-update", (data) => {
+    renderBreakdown();
   });
 
-  socket.on("show-next-question", (data) => {
-    if (dom.hostPhaseLabel) {
-      dom.hostPhaseLabel.textContent = data.isFinal
-        ? `🏁 Preparing Final Scoreboard (${data.transitionSeconds}s)`
-        : `⏭️ Next Question ${data.nextQuestionNumber} in ${data.transitionSeconds}s`;
+  socket.on("answer-revealed", (data) => {
+    if (data.isRevealed) {
+      highlightCorrectOption(data.correctAnswer);
+      if (dom.hostSideCorrectAnswer) {
+        dom.hostSideCorrectAnswer.textContent = `Option ${data.correctAnswer}`;
+      }
+      if (dom.btnRevealAnswer) {
+        dom.btnRevealAnswer.textContent = "🙈 Hide Answer";
+      }
+    } else {
+      resetOptionButtons();
+      if (dom.btnRevealAnswer) {
+        dom.btnRevealAnswer.textContent = "👁️ Reveal Answer";
+      }
     }
   });
 
@@ -485,6 +470,10 @@ function initSocket() {
     if (dom.hostActiveGrid) dom.hostActiveGrid.classList.remove("hidden");
     if (dom.btnStartQuiz) dom.btnStartQuiz.disabled = false;
     if (dom.btnNextQuestion) dom.btnNextQuestion.disabled = true;
+    if (dom.btnRevealAnswer) dom.btnRevealAnswer.disabled = true;
+    if (dom.btnFinishQuiz) dom.btnFinishQuiz.classList.add("hidden");
+    if (dom.btnNextQuestion) dom.btnNextQuestion.classList.remove("hidden");
+    if (dom.allTeamsAnsweredBanner) dom.allTeamsAnsweredBanner.classList.add("hidden");
     showToast("Quiz has been reset to lobby.", "info");
   });
 }
@@ -497,11 +486,10 @@ function renderAll(state) {
 
   // 1. Header Bar Labels
   if (dom.hostPhaseLabel) {
+    const isFinal = state.currentQuestionIndex === state.totalQuestions - 1;
     const phaseNames = {
       idle: "Waiting in Lobby",
-      instructions: "Rules Countdown (5s)",
-      question: `Question ${state.currentQuestionIndex + 1} of ${state.totalQuestions}`,
-      transition: "Preparing Next Round",
+      running: `Question ${state.currentQuestionNumber || state.currentQuestionIndex + 1} of ${state.totalQuestions}${isFinal ? " (Final Question)" : ""}`,
       finished: "Quiz Completed"
     };
     dom.hostPhaseLabel.textContent = phaseNames[state.state] || state.state;
@@ -536,53 +524,95 @@ function renderAll(state) {
   }
 
   // 2. Control Buttons State
+  const isRunning = state.state === "running";
+  const isFinal = state.isFinalQuestion || (state.currentQuestionIndex === state.totalQuestions - 1 && state.totalQuestions > 0);
+
   if (dom.btnStartQuiz) {
-    dom.btnStartQuiz.disabled = state.state === "question" || state.state === "instructions" || state.state === "transition";
+    dom.btnStartQuiz.disabled = isRunning;
   }
-  if (dom.btnNextQuestion) {
-    dom.btnNextQuestion.disabled = state.state !== "question" && state.state !== "transition" && state.state !== "instructions";
+
+  if (dom.btnRevealAnswer) {
+    dom.btnRevealAnswer.disabled = !isRunning;
+    dom.btnRevealAnswer.textContent = state.isAnswerRevealed ? "🙈 Hide Answer" : "👁️ Reveal Answer";
+  }
+
+  if (isFinal && isRunning) {
+    dom.btnNextQuestion?.classList.add("hidden");
+    dom.btnFinishQuiz?.classList.remove("hidden");
+    if (dom.btnFinishQuiz) dom.btnFinishQuiz.disabled = false;
+  } else {
+    dom.btnFinishQuiz?.classList.add("hidden");
+    dom.btnNextQuestion?.classList.remove("hidden");
+    if (dom.btnNextQuestion) {
+      dom.btnNextQuestion.disabled = !isRunning;
+    }
+  }
+
+  // Answered Counter Progress
+  const answeredCount = state.answeredCount || 0;
+  const totalCount = state.totalTeamsCount || (state.teams ? state.teams.length : 0);
+  if (dom.hostAnsweredRatio) {
+    dom.hostAnsweredRatio.textContent = `${answeredCount} / ${totalCount} Answered`;
+  }
+
+  if (dom.hostLiveAnswerSummary) {
+    dom.hostLiveAnswerSummary.textContent = `${answeredCount} of ${totalCount} teams submitted • Admin controlled pace`;
+  }
+
+  // Highlight banner when ALL teams have answered
+  if (dom.allTeamsAnsweredBanner) {
+    if (isRunning && state.allAnswered && totalCount > 0) {
+      dom.allTeamsAnsweredBanner.classList.remove("hidden");
+    } else {
+      dom.allTeamsAnsweredBanner.classList.add("hidden");
+    }
   }
 
   // 3. Question Card
-  if (state.state === "question" && state.currentQuestion) {
+  if (isRunning && state.currentQuestion) {
     updateQuestionDisplay({
       questionIndex: state.currentQuestionIndex,
-      questionNumber: state.currentQuestionIndex + 1,
+      questionNumber: state.currentQuestionNumber || state.currentQuestionIndex + 1,
       totalQuestions: state.totalQuestions,
       question: state.currentQuestion.question,
       options: state.currentQuestion.options,
       correctAnswer: state.currentQuestion.correctAnswer
     });
+
+    if (state.isAnswerRevealed && state.currentQuestion.correctAnswer) {
+      highlightCorrectOption(state.currentQuestion.correctAnswer);
+    }
   } else if (state.state === "idle") {
     if (dom.hostQuestionNumberMeta) dom.hostQuestionNumberMeta.textContent = `Lobby Ready (${state.totalQuestions} Questions Loaded)`;
     if (dom.hostQuestionText) dom.hostQuestionText.textContent = 'Teams can join using their passcodes. Click "Start Quiz" above when ready!';
-    if (dom.hostTimerDisplay) dom.hostTimerDisplay.textContent = "⏱️ 30s";
+    if (dom.hostAnsweredRatio) dom.hostAnsweredRatio.textContent = "0 / 0 Answered";
     resetOptionButtons();
   }
 
   // 4. Live Rankings Table
   renderLiveTable(state.rankings, state.teams);
 
-  // 5. First Correct Answer Widget
-  if (state.firstCorrectAnswerTeam) {
-    if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = state.firstCorrectAnswerTeam;
-    if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = `${state.firstCorrectAnswerTime}s`;
-  } else {
-    if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = "Waiting...";
-    if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = "--:--";
-  }
-
-  // 6. Correct Answer Display
-  if (state.currentQuestion?.correctAnswer && state.state === "question") {
+  // 5. Correct Answer Display in Side Panel
+  if (state.currentQuestion?.correctAnswer && isRunning) {
     if (dom.hostSideCorrectAnswer) {
       dom.hostSideCorrectAnswer.textContent = `Option ${state.currentQuestion.correctAnswer}`;
     }
   }
 
-  // 7. Breakdown
+  if (dom.hostStatusSubtext) {
+    if (state.state === "idle") {
+      dom.hostStatusSubtext.textContent = "Waiting in Lobby";
+    } else if (state.state === "running") {
+      dom.hostStatusSubtext.textContent = `Question ${state.currentQuestionIndex + 1} of ${state.totalQuestions}`;
+    } else {
+      dom.hostStatusSubtext.textContent = "Quiz Completed";
+    }
+  }
+
+  // 6. Breakdown
   renderBreakdown(state.teams);
 
-  // 8. Finished state
+  // 7. Finished state
   if (state.state === "finished") {
     renderFinalScoreboard({ scoreboard: state.rankings, winner: state.rankings[0] });
   } else {
@@ -597,9 +627,6 @@ function updateQuestionDisplay(data) {
   }
   if (dom.hostQuestionText) {
     dom.hostQuestionText.textContent = data.question;
-  }
-  if (dom.hostTimerDisplay) {
-    dom.hostTimerDisplay.textContent = `⏱️ ${data.duration || 30}s`;
   }
 
   if (data.options) {
@@ -633,8 +660,6 @@ function highlightCorrectOption(letter) {
 }
 
 function resetSidePanel(data) {
-  if (dom.hostFirstTeamName) dom.hostFirstTeamName.textContent = "Waiting...";
-  if (dom.hostFirstTeamTime) dom.hostFirstTeamTime.textContent = "--:--";
   if (dom.hostSideCorrectAnswer) {
     dom.hostSideCorrectAnswer.textContent = data?.correctAnswer ? `Option ${data.correctAnswer}` : "-";
   }
@@ -665,7 +690,7 @@ function renderLiveTable(rankings, teams) {
     dom.hostLiveTableBody.innerHTML = `
       <tr>
         <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">
-          No teams connected yet. Teams join at <strong>/team.html</strong>
+          No teams registered yet.
         </td>
       </tr>
     `;
@@ -676,38 +701,33 @@ function renderLiveTable(rankings, teams) {
     const rankNum = idx + 1;
     const rankBadgeClass = rankNum === 1 ? "rank-1" : rankNum === 2 ? "rank-2" : rankNum === 3 ? "rank-3" : "rank-other";
 
-    let resultBadge = `<span class="badge-status badge-waiting">Thinking...</span>`;
+    let statusBadge = `<span class="badge-status badge-waiting" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3);">⏳ Thinking...</span>`;
+    if (team.hasAnswered || team.currentAnswer) {
+      statusBadge = `<span class="badge-status badge-correct" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 700;">✓ Answered</span>`;
+    }
+
+    let resultBadge = `<span style="color: var(--text-dim); font-size: 0.85rem;">Pending</span>`;
     if (team.currentResult === "correct") {
       resultBadge = `<span class="badge-status badge-correct">✓ Correct</span>`;
     } else if (team.currentResult === "wrong") {
       resultBadge = `<span class="badge-status badge-wrong">✗ Incorrect</span>`;
-    } else if (team.currentResult === "no-answer") {
-      resultBadge = `<span class="badge-status badge-wrong">⌛ Time Out</span>`;
     }
 
     const answerPill = team.currentAnswer
       ? `<span style="font-weight: 800; color: #fff; background: rgba(99, 102, 241, 0.25); padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.4);">${team.currentAnswer}</span>`
       : `<span style="color: var(--text-dim); font-size: 0.85rem;">-</span>`;
 
-    const timeDisplay = team.currentAnswerTime !== null && team.currentAnswerTime !== undefined
-      ? `${team.currentAnswerTime}s`
-      : `--:--`;
-
     const connStatus = team.connected
       ? `<span style="color: #34d399; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><span class="live-dot" style="width: 8px; height: 8px;"></span> Online</span>`
       : `<span style="color: #94a3b8; font-size: 0.85rem;">Offline</span>`;
 
-    const firstBadge = team.isFirstCorrect
-      ? `<span style="margin-left: 0.5rem; font-size: 0.75rem; background: #f59e0b; color: #000; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 4px;">⚡ 1st</span>`
-      : "";
-
     return `
       <tr>
         <td><span class="rank-badge ${rankBadgeClass}">${rankNum}</span></td>
-        <td style="font-weight: 700; color: #fff;">${team.teamName} ${firstBadge}</td>
+        <td style="font-weight: 700; color: #fff;">${team.teamName}</td>
+        <td style="text-align: center;">${statusBadge}</td>
         <td style="text-align: center;">${answerPill}</td>
-        <td style="font-family: monospace; color: #cbd5e1;">${timeDisplay}</td>
-        <td>${resultBadge}</td>
+        <td style="text-align: center;">${resultBadge}</td>
         <td style="text-align: center; font-weight: 800; font-size: 1.1rem; color: #38bdf8;">${team.score}</td>
         <td>${connStatus}</td>
       </tr>
@@ -724,7 +744,7 @@ function renderFinalScoreboard(data) {
   const winner = data.winner || scoreboard[0];
 
   if (dom.hostWinnerTeamName && winner) {
-    dom.hostWinnerTeamName.textContent = `${winner.teamName} (Score: ${winner.score})`;
+    dom.hostWinnerTeamName.textContent = `${winner.teamName} (Score: ${winner.score} pts)`;
   }
 
   // Top 3 Podium
@@ -744,7 +764,6 @@ function renderFinalScoreboard(data) {
           <div class="podium-rank-icon">${medal}</div>
           <div class="podium-team">${t.teamName}</div>
           <div class="podium-score">${t.score} pts</div>
-          <div class="podium-time">${t.totalTime}s total</div>
         </div>
       `;
     }).join('');
@@ -759,8 +778,8 @@ function renderFinalScoreboard(data) {
         <tr>
           <td><span class="rank-badge ${rankClass}">${rankNum}</span></td>
           <td style="font-weight: 700; color: #fff;">${t.teamName}</td>
-          <td style="font-weight: 800; color: #38bdf8; font-size: 1.1rem;">${t.score} Correct</td>
-          <td style="font-family: monospace; color: #cbd5e1;">${t.totalTime}s</td>
+          <td style="font-weight: 800; color: #38bdf8; font-size: 1.1rem; text-align: center;">${t.score}</td>
+          <td style="font-weight: 800; color: #a7f3d0; text-align: center;">${t.score} pts</td>
         </tr>
       `;
     }).join('');
@@ -1558,6 +1577,23 @@ function initHostApp() {
     showToast("Quiz started! Arena is launching...", "info");
   });
 
+  dom.btnRevealAnswer?.addEventListener("click", async () => {
+    if (dom.btnRevealAnswer.disabled) return;
+    if (socket && socket.connected) {
+      socket.emit("admin-reveal-answer");
+    }
+    if (adminToken) {
+      try {
+        await fetch("/api/admin/quiz/reveal", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+      } catch (e) {
+        console.warn("Quiz reveal API trigger:", e);
+      }
+    }
+  });
+
   dom.btnNextQuestion?.addEventListener("click", async () => {
     if (dom.btnNextQuestion.disabled) return;
     if (socket && socket.connected) {
@@ -1571,6 +1607,23 @@ function initHostApp() {
         });
       } catch (e) {
         console.warn("Quiz next API trigger:", e);
+      }
+    }
+  });
+
+  dom.btnFinishQuiz?.addEventListener("click", async () => {
+    if (dom.btnFinishQuiz.disabled) return;
+    if (socket && socket.connected) {
+      socket.emit("admin-finish-quiz");
+    }
+    if (adminToken) {
+      try {
+        await fetch("/api/admin/quiz/finish", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+      } catch (e) {
+        console.warn("Quiz finish API trigger:", e);
       }
     }
   });

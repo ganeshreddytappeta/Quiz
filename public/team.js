@@ -47,15 +47,11 @@ const elements = {
   navTeamStatusBadge: document.getElementById("navTeamStatusBadge"),
 
   // Instructions
-  instructionsCountdown: document.getElementById("instructionsCountdown"),
-  instructionsProgress: document.getElementById("instructionsProgress"),
-
   // Question view
   questionTeamName: document.getElementById("questionTeamName"),
   questionNumberMeta: document.getElementById("questionNumberMeta"),
   questionText: document.getElementById("questionText"),
-  questionTimerSeconds: document.getElementById("questionTimerSeconds"),
-  questionTimer: document.getElementById("questionTimer"),
+  questionRoundBadge: document.getElementById("questionRoundBadge"),
   optionsGrid: document.getElementById("optionsGrid"),
   optionBtns: {
     A: document.getElementById("optionBtnA"),
@@ -71,12 +67,9 @@ const elements = {
   },
   submissionFeedbackCard: document.getElementById("submissionFeedbackCard"),
   submittedOptionLabel: document.getElementById("submittedOptionLabel"),
-  submittedTimeLabel: document.getElementById("submittedTimeLabel"),
 
   // Transition view
   transitionHeading: document.getElementById("transitionHeading"),
-  transitionCountdown: document.getElementById("transitionCountdown"),
-  transitionProgress: document.getElementById("transitionProgress"),
   transitionSubtext: document.getElementById("transitionSubtext"),
 
   // Final scoreboard
@@ -197,13 +190,6 @@ function initSocket() {
     }
   });
 
-  // Instructions screen
-  socket.on("show-instructions", (data) => {
-    showView("instructions");
-    if (elements.instructionsCountdown) elements.instructionsCountdown.textContent = data.duration || 5;
-    if (elements.instructionsProgress) elements.instructionsProgress.style.width = "100%";
-  });
-
   // Question started
   socket.on("question-start", (data) => {
     currentQuestionData = data;
@@ -211,35 +197,24 @@ function initSocket() {
     showQuestionScreen(data);
   });
 
-  // Timer Tick
-  socket.on("timer-tick", (data) => {
-    const left = data.timerSecondsLeft;
-    // Update Question timer if in question view
-    if (!views.question?.classList.contains("hidden")) {
-      if (elements.questionTimerSeconds) {
-        elements.questionTimerSeconds.textContent = `${left}s`;
+  // Answer revealed by Admin
+  socket.on("answer-revealed", (data) => {
+    if (data.isRevealed && data.correctAnswer) {
+      const correctBtn = elements.optionBtns[data.correctAnswer];
+      if (correctBtn) {
+        correctBtn.style.background = "rgba(16, 185, 129, 0.35)";
+        correctBtn.style.borderColor = "#10b981";
+        correctBtn.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.4)";
       }
-      if (left <= 5) {
-        elements.questionTimer?.classList.add("timer-urgent");
-      } else {
-        elements.questionTimer?.classList.remove("timer-urgent");
-      }
-    }
-
-    // Update Instructions countdown if in instructions view
-    if (!views.instructions?.classList.contains("hidden")) {
-      if (elements.instructionsCountdown) elements.instructionsCountdown.textContent = left;
-      if (elements.instructionsProgress) {
-        elements.instructionsProgress.style.width = `${(left / 5) * 100}%`;
-      }
-    }
-
-    // Update Transition countdown if in transition view
-    if (!views.transition?.classList.contains("hidden")) {
-      if (elements.transitionCountdown) elements.transitionCountdown.textContent = left;
-      if (elements.transitionProgress) {
-        elements.transitionProgress.style.width = `${(left / 5) * 100}%`;
-      }
+    } else {
+      ["A", "B", "C", "D"].forEach(letter => {
+        const btn = elements.optionBtns[letter];
+        if (btn) {
+          btn.style.background = "";
+          btn.style.borderColor = "";
+          btn.style.boxShadow = "";
+        }
+      });
     }
   });
 
@@ -254,43 +229,23 @@ function initSocket() {
         const optText = currentQuestionData.options[res.selectedAnswer] || "";
         elements.submittedOptionLabel.textContent = `${res.selectedAnswer}. ${optText}`;
       }
-      if (elements.submittedTimeLabel) {
-        elements.submittedTimeLabel.textContent = `Time Taken: ${res.formattedTime || formatSeconds(res.responseTime)}`;
-      }
     }
   });
 
-  // Question timeout / ended
-  socket.on("question-timeout", (data) => {
-    if (!hasSubmittedCurrentQuestion) {
-      // Disable options and show No Answer
-      disableAllOptionButtons();
-      if (elements.submissionFeedbackCard) {
-        elements.submissionFeedbackCard.classList.remove("hidden");
-      }
-      if (elements.submittedOptionLabel) {
-        elements.submittedOptionLabel.textContent = "Time Expired - No Answer Recorded";
-      }
-      if (elements.submittedTimeLabel) {
-        elements.submittedTimeLabel.textContent = "Time Taken: 30:00 (Max)";
-      }
-    }
-  });
-
-  // Next Question Countdown
+  // Next Question Countdown / Transition
   socket.on("show-next-question", (data) => {
     showView("transition");
     if (elements.transitionHeading) {
-      elements.transitionHeading.textContent = data.isFinal ? "Final Results in" : "Next Question in";
+      elements.transitionHeading.textContent = data.isFinal ? "Quiz Completed!" : "Get Ready!";
     }
     if (data && data.totalQuestions) {
       totalQuestionsCount = data.totalQuestions;
     }
     if (elements.transitionSubtext) {
-      elements.transitionSubtext.textContent = data.isFinal ? "Calculating champion..." : `Get ready for Question ${data.nextQuestionNumber} of ${data.totalQuestions}!`;
+      elements.transitionSubtext.textContent = data.isFinal 
+        ? "The admin is about to reveal the final scoreboard..." 
+        : `Admin is launching Question ${data.nextQuestionNumber} of ${data.totalQuestions}...`;
     }
-    if (elements.transitionCountdown) elements.transitionCountdown.textContent = data.transitionSeconds;
-    if (elements.transitionProgress) elements.transitionProgress.style.width = "100%";
   });
 
   // Quiz Finished
@@ -391,9 +346,6 @@ function handleServerState(stateData) {
           const optText = currentQuestionData.options[stateData.currentAnswer] || "";
           elements.submittedOptionLabel.textContent = `${stateData.currentAnswer}. ${optText}`;
         }
-        if (elements.submittedTimeLabel && stateData.currentAnswerTime) {
-          elements.submittedTimeLabel.textContent = `Time Taken: ${formatSeconds(stateData.currentAnswerTime)}`;
-        }
       }
     }
   } else if (state === "transition") {
@@ -416,10 +368,6 @@ function showQuestionScreen(data) {
   if (elements.questionText) {
     elements.questionText.textContent = data.question;
   }
-  if (elements.questionTimerSeconds) {
-    elements.questionTimerSeconds.textContent = "30s";
-  }
-  elements.questionTimer?.classList.remove("timer-urgent");
 
   // Options
   ["A", "B", "C", "D"].forEach(letter => {
@@ -431,6 +379,9 @@ function showQuestionScreen(data) {
     if (btnEl) {
       btnEl.disabled = false;
       btnEl.classList.remove("selected");
+      btnEl.style.background = "";
+      btnEl.style.borderColor = "";
+      btnEl.style.boxShadow = "";
     }
   });
 
@@ -491,19 +442,19 @@ function renderFinalScoreboard(scoreboard = [], winner = null, totalCount = null
       <div class="podium-card">
         <div class="podium-medal">🥈</div>
         <div class="podium-team">${second ? second.teamName : "Team"}</div>
-        <div class="podium-score">${second ? `${second.score} Correct (${second.totalTime}s)` : "-"}</div>
+        <div class="podium-score">${second ? `${second.score} / ${maxQuestions} (${second.score} pts)` : "-"}</div>
       </div>
       <!-- 1st Place -->
       <div class="podium-card first">
         <div class="podium-medal">🥇</div>
         <div class="podium-team" style="font-size: 1.35rem; color: #fbbf24;">${first ? first.teamName : "Team"}</div>
-        <div class="podium-score" style="font-weight: 700; color: #fff;">${first ? `${first.score} Correct (${first.totalTime}s)` : "-"}</div>
+        <div class="podium-score" style="font-weight: 700; color: #fff;">${first ? `${first.score} / ${maxQuestions} (${first.score} pts)` : "-"}</div>
       </div>
       <!-- 3rd Place -->
       <div class="podium-card">
         <div class="podium-medal">🥉</div>
         <div class="podium-team">${third ? third.teamName : "Team"}</div>
-        <div class="podium-score">${third ? `${third.score} Correct (${third.totalTime}s)` : "-"}</div>
+        <div class="podium-score">${third ? `${third.score} / ${maxQuestions} (${third.score} pts)` : "-"}</div>
       </div>
     `;
   }
@@ -522,11 +473,11 @@ function renderFinalScoreboard(scoreboard = [], winner = null, totalCount = null
           <td>
             ${t.teamName} ${isCurrentTeam ? '⭐ <span style="font-size: 0.8rem; color: #a5b4fc;">(You)</span>' : ''}
           </td>
-          <td style="font-weight: 700; color: #34d399;">
+          <td style="font-weight: 700; color: #34d399; text-align: center;">
             ${t.score} / ${maxQuestions}
           </td>
-          <td style="font-family: monospace; color: #cbd5e1;">
-            ${t.totalTime}s
+          <td style="font-weight: 800; color: #38bdf8; text-align: center;">
+            ${t.score} pts
           </td>
         </tr>
       `;
