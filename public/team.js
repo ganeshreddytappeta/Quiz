@@ -196,9 +196,9 @@ function initSocket() {
 
   socket.on("connect", () => {
     console.log("Connected to QUIZ ARENA server via Socket.IO:", socket.id);
-    // Check if previously logged in
-    const storedTeam = sessionStorage.getItem("quiz_team_name");
-    const storedToken = sessionStorage.getItem("quiz_session_token");
+    // Check if previously logged in (check both sessionStorage and localStorage)
+    const storedTeam = sessionStorage.getItem("quiz_team_name") || localStorage.getItem("quiz_team_name");
+    const storedToken = sessionStorage.getItem("quiz_session_token") || localStorage.getItem("quiz_session_token");
     if (storedTeam && storedToken) {
       socket.emit("team-reconnect", {
         teamName: storedTeam,
@@ -224,15 +224,17 @@ function initSocket() {
       currentSessionToken = res.sessionToken;
       sessionStorage.setItem("quiz_team_name", res.teamName);
       sessionStorage.setItem("quiz_session_token", res.sessionToken);
+      localStorage.setItem("quiz_team_name", res.teamName);
+      localStorage.setItem("quiz_session_token", res.sessionToken);
 
       if (elements.waitingTeamTitle) elements.waitingTeamTitle.textContent = res.teamName;
       if (elements.questionTeamName) elements.questionTeamName.textContent = res.teamName;
 
       handleServerState(res.stateData);
     } else {
-      // SCREEN 3: INVALID LOGIN
+      // SCREEN 3: INVALID LOGIN / ALREADY LOGGED IN
       if (elements.invalidErrorTitle) {
-        elements.invalidErrorTitle.textContent = res.errorType === "already_logged_in" ? "Already Logged In" : "Invalid Code";
+        elements.invalidErrorTitle.textContent = res.errorType === "already_logged_in" ? "Team Already Logged In" : "Invalid Code";
       }
       if (elements.invalidErrorMessage) {
         elements.invalidErrorMessage.textContent = res.message || "The team name or code is incorrect. Please try again.";
@@ -245,15 +247,28 @@ function initSocket() {
   socket.on("reconnect-response", (res) => {
     if (res.success) {
       currentTeamName = res.teamName;
+      currentSessionToken = res.sessionToken;
+      sessionStorage.setItem("quiz_team_name", res.teamName);
+      sessionStorage.setItem("quiz_session_token", res.sessionToken);
+      localStorage.setItem("quiz_team_name", res.teamName);
+      localStorage.setItem("quiz_session_token", res.sessionToken);
       if (elements.waitingTeamTitle) elements.waitingTeamTitle.textContent = res.teamName;
       if (elements.questionTeamName) elements.questionTeamName.textContent = res.teamName;
       handleServerState(res.stateData);
     } else {
       sessionStorage.removeItem("quiz_team_name");
       sessionStorage.removeItem("quiz_session_token");
+      localStorage.removeItem("quiz_team_name");
+      localStorage.removeItem("quiz_session_token");
       currentTeamName = null;
       currentSessionToken = null;
-      showView("login");
+      if (res.errorType === "already_logged_in") {
+        if (elements.invalidErrorTitle) elements.invalidErrorTitle.textContent = "Team Already Logged In";
+        if (elements.invalidErrorMessage) elements.invalidErrorMessage.textContent = res.message || "This team is already logged in on another device.";
+        showView("invalidLogin");
+      } else {
+        showView("login");
+      }
     }
   });
 
@@ -631,43 +646,74 @@ function renderFinalScoreboard(scoreboard = [], winner = null, totalCount = null
     elements.winnerTeamName.textContent = winner ? winner.teamName : "Champion Team";
   }
 
-  // Top 3 Podium
+  // Top 3 Podium (gracefully handle 1, 2, or 3+ teams)
   if (elements.podiumGrid && scoreboard.length > 0) {
-    const first = scoreboard[0];
-    const second = scoreboard[1];
-    const third = scoreboard[2];
-
-    elements.podiumGrid.innerHTML = `
-      <!-- 2nd Place -->
-      <div class="podium-card">
-        <div class="podium-medal">🥈</div>
-        <div class="podium-team">${second ? second.teamName : "Team"}</div>
-        <div class="podium-score">${second ? `${second.score} Correct (${second.totalTime}s)` : "-"}</div>
-      </div>
-      <!-- 1st Place -->
-      <div class="podium-card first">
-        <div class="podium-medal">🥇</div>
-        <div class="podium-team" style="font-size: 1.35rem; color: #fbbf24;">${first ? first.teamName : "Team"}</div>
-        <div class="podium-score" style="font-weight: 700; color: #fff;">${first ? `${first.score} Correct (${first.totalTime}s)` : "-"}</div>
-      </div>
-      <!-- 3rd Place -->
-      <div class="podium-card">
-        <div class="podium-medal">🥉</div>
-        <div class="podium-team">${third ? third.teamName : "Team"}</div>
-        <div class="podium-score">${third ? `${third.score} Correct (${third.totalTime}s)` : "-"}</div>
-      </div>
-    `;
+    let podiumHtml = "";
+    if (scoreboard.length === 1) {
+      const first = scoreboard[0];
+      podiumHtml = `
+        <div class="podium-card first" style="grid-column: 1 / -1; max-width: 320px; margin: 0 auto;">
+          <div class="podium-medal">🥇</div>
+          <div class="podium-team" style="font-size: 1.35rem; color: #fbbf24;">${first.teamName}</div>
+          <div class="podium-score" style="font-weight: 700; color: #fff;">${first.score} Correct (${Number(first.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+      `;
+    } else if (scoreboard.length === 2) {
+      const first = scoreboard[0];
+      const second = scoreboard[1];
+      const isTie = first.score === second.score && Math.abs(first.totalTime - second.totalTime) < 0.01;
+      podiumHtml = `
+        <div class="podium-card ${isTie ? 'first' : ''}">
+          <div class="podium-medal">${isTie ? '🥇' : '🥈'}</div>
+          <div class="podium-team">${second.teamName}</div>
+          <div class="podium-score">${second.score} Correct (${Number(second.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+        <div class="podium-card first">
+          <div class="podium-medal">🥇</div>
+          <div class="podium-team" style="font-size: 1.35rem; color: #fbbf24;">${first.teamName}</div>
+          <div class="podium-score" style="font-weight: 700; color: #fff;">${first.score} Correct (${Number(first.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+      `;
+    } else {
+      const first = scoreboard[0];
+      const second = scoreboard[1];
+      const third = scoreboard[2];
+      podiumHtml = `
+        <!-- 2nd Place -->
+        <div class="podium-card">
+          <div class="podium-medal">${second.rank === 1 ? '🥇' : '🥈'}</div>
+          <div class="podium-team">${second.teamName}</div>
+          <div class="podium-score">${second.score} Correct (${Number(second.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+        <!-- 1st Place -->
+        <div class="podium-card first">
+          <div class="podium-medal">🥇</div>
+          <div class="podium-team" style="font-size: 1.35rem; color: #fbbf24;">${first.teamName}</div>
+          <div class="podium-score" style="font-weight: 700; color: #fff;">${first.score} Correct (${Number(first.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+        <!-- 3rd Place -->
+        <div class="podium-card">
+          <div class="podium-medal">${third.rank <= 2 ? '🥈' : '🥉'}</div>
+          <div class="podium-team">${third.teamName}</div>
+          <div class="podium-score">${third.score} Correct (${Number(third.totalTime || 0).toFixed(2)}s)</div>
+        </div>
+      `;
+    }
+    elements.podiumGrid.innerHTML = podiumHtml;
   }
 
   // Table rows
   if (elements.finalScoreboardBody) {
     elements.finalScoreboardBody.innerHTML = scoreboard.map((t, index) => {
       const isCurrentTeam = t.teamName === currentTeamName;
+      const rankNum = t.rank || (index + 1);
+      const rankDisplay = t.displayRank || (t.isTied ? `T-${rankNum}` : `${rankNum}`);
+      const rankBadgeClass = rankNum === 1 ? 'rank-1' : rankNum === 2 ? 'rank-2' : rankNum === 3 ? 'rank-3' : '';
       return `
         <tr style="${isCurrentTeam ? 'background: rgba(99, 102, 241, 0.18); font-weight: 700;' : ''}">
           <td>
-            <span class="rank-badge ${index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : ''}">
-              ${index + 1}
+            <span class="rank-badge ${rankBadgeClass}">
+              ${rankDisplay}
             </span>
           </td>
           <td>
@@ -677,7 +723,7 @@ function renderFinalScoreboard(scoreboard = [], winner = null, totalCount = null
             ${t.score} / ${maxQuestions}
           </td>
           <td style="font-family: monospace; color: #cbd5e1;">
-            ${t.totalTime}s
+            ${Number(t.totalTime || 0).toFixed(2)}s
           </td>
         </tr>
       `;
@@ -864,6 +910,8 @@ function initTeamApp() {
         currentSessionToken = data.sessionToken;
         sessionStorage.setItem("quiz_team_name", data.teamName);
         sessionStorage.setItem("quiz_session_token", data.sessionToken);
+        localStorage.setItem("quiz_team_name", data.teamName);
+        localStorage.setItem("quiz_session_token", data.sessionToken);
 
         if (elements.waitingTeamTitle) elements.waitingTeamTitle.textContent = data.teamName;
         if (elements.questionTeamName) elements.questionTeamName.textContent = data.teamName;
@@ -880,9 +928,9 @@ function initTeamApp() {
 
         handleServerState(data.stateData);
       } else {
-        // SCREEN 3: INVALID LOGIN
+        // SCREEN 3: INVALID LOGIN / ALREADY LOGGED IN
         if (elements.invalidErrorTitle) {
-          elements.invalidErrorTitle.textContent = "Invalid Code";
+          elements.invalidErrorTitle.textContent = data.errorType === "already_logged_in" ? "Team Already Logged In" : "Invalid Code";
         }
         if (elements.invalidErrorMessage) {
           elements.invalidErrorMessage.textContent = data.message || "The team name or code is incorrect. Please try again.";
@@ -934,6 +982,8 @@ function initTeamApp() {
     if (socket) socket.emit("team-logout");
     sessionStorage.removeItem("quiz_team_name");
     sessionStorage.removeItem("quiz_session_token");
+    localStorage.removeItem("quiz_team_name");
+    localStorage.removeItem("quiz_session_token");
     currentTeamName = null;
     currentSessionToken = null;
     showView("login");

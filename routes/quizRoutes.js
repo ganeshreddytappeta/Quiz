@@ -63,11 +63,14 @@ router.get("/results", async (req, res) => {
       });
     }
 
+    const calcRankings = req.app.locals.calculateRankings;
+    const liveResults = calcRankings ? calcRankings() : [];
+
     return res.json({
       success: true,
-      source: "memory_fallback",
-      total: 0,
-      results: []
+      source: "memory_live",
+      total: liveResults.length,
+      results: liveResults
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

@@ -383,22 +383,66 @@ function clearCurrentTimer() {
 // Helper: Calculate rankings
 function calculateRankings() {
   const teamList = Object.values(quizState.teams);
-  return teamList
-    .slice()
-    .sort((a, b) => {
-      // 1. Higher score (more correct answers) first
-      if (b.score !== a.score) {
-        return b.score - a.score;
+  const isQuestionActive = quizState.state === "question" && quizState.questionStartTime !== null;
+  const currentElapsed = isQuestionActive
+    ? Math.min(quizState.questionDuration, Math.max(0, (Date.now() - (quizState.questionStartTime || Date.now())) / 1000))
+    : 0;
+
+  // Sorting comparator
+  const sorted = teamList.slice().sort((a, b) => {
+    // 1. Higher score (more correct answers) first
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    // 2. Tie-breaker: Lower total response time first
+    // In active round, non-submitting teams have accumulated at least currentElapsed so far
+    const aEffectiveTime = (isQuestionActive && !a.currentAnswer) ? (a.totalTime + currentElapsed) : a.totalTime;
+    const bEffectiveTime = (isQuestionActive && !b.currentAnswer) ? (b.totalTime + currentElapsed) : b.totalTime;
+    if (Math.abs(aEffectiveTime - bEffectiveTime) > 0.001) {
+      return aEffectiveTime - bEffectiveTime;
+    }
+    // 3. Team name order
+    return a.teamName.localeCompare(b.teamName);
+  });
+
+  // Calculate standard competition ranking (1, 2, 2, 4...)
+  const results: Array<{
+    rank: number;
+    isTied: boolean;
+    displayRank: string;
+    teamName: string;
+    connected: boolean;
+    score: number;
+    totalTime: number;
+    currentAnswer: string | null;
+    currentAnswerTime: number | null;
+    currentResult: "correct" | "wrong" | "no-answer" | "waiting";
+    isFirstCorrect: boolean;
+  }> = [];
+
+  for (let index = 0; index < sorted.length; index++) {
+    const team = sorted[index];
+    let rank = index + 1;
+    let isTied = false;
+
+    if (index > 0) {
+      const prev = sorted[index - 1];
+      const prevScore = prev.score;
+      const currScore = team.score;
+      const prevTime = Number(prev.totalTime.toFixed(2));
+      const currTime = Number(team.totalTime.toFixed(2));
+
+      if (currScore === prevScore && Math.abs(currTime - prevTime) < 0.01) {
+        rank = results[index - 1].rank;
+        isTied = true;
+        results[index - 1].isTied = true;
       }
-      // 2. Tie-breaker: Lower total response time first
-      if (a.totalTime !== b.totalTime) {
-        return a.totalTime - b.totalTime;
-      }
-      // 3. Team name order
-      return a.teamName.localeCompare(b.teamName);
-    })
-    .map((team, index) => ({
-      rank: index + 1,
+    }
+
+    results.push({
+      rank,
+      isTied,
+      displayRank: `${rank}`,
       teamName: team.teamName,
       connected: team.connected,
       score: team.score,
@@ -407,7 +451,20 @@ function calculateRankings() {
       currentAnswerTime: team.currentAnswerTime,
       currentResult: team.currentResult,
       isFirstCorrect: team.isFirstCorrect
-    }));
+    });
+  }
+
+  // Post-pass to update isTied flag and displayRank for earlier tied elements
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const hasSameRank = results.some((other, oi) => oi !== i && other.rank === r.rank && other.score === r.score);
+    if (hasSameRank) {
+      r.isTied = true;
+      r.displayRank = `T-${r.rank}`;
+    }
+  }
+
+  return results;
 }
 
 // Helper: Get sanitized host state
@@ -1009,16 +1066,23 @@ io.on("connection", (socket: Socket) => {
     }
     const team = quizState.teams[canonicalName];
 
-    // Transfer session if active on another socket
-    if (team.connected && team.socketId && team.socketId !== socket.id) {
-      const oldSocket = io.sockets.sockets.get(team.socketId);
-      if (oldSocket) {
-        oldSocket.emit("team-superseded", {
-          message: "You have logged in from another session. This session has been transferred."
-        });
-        oldSocket.leave("teams-room");
-        delete oldSocket.data.teamName;
-      }
+    // STRICT SINGLE-DEVICE LOGIN GUARD:
+    // If team is already actively connected or claimed by another session, strictly DENY the new device!
+    const existingSocket = team.socketId ? io.sockets.sockets.get(team.socketId) : null;
+    const isSocketAlive = Boolean(existingSocket && existingSocket.connected && existingSocket.id !== socket.id);
+    const incomingToken = (data as any)?.sessionToken;
+    const isSameSession = Boolean(team.sessionToken && incomingToken && team.sessionToken === incomingToken);
+
+    if ((team.connected || isSocketAlive || team.sessionToken) && !isSameSession && team.socketId !== socket.id) {
+      socket.emit("team-login-failed", {
+        message: `Team "${canonicalName}" is already logged in on another device. Only 1 device per team is allowed.`
+      });
+      socket.emit("login-response", {
+        success: false,
+        errorType: "already_logged_in",
+        message: `Team "${canonicalName}" is already logged in on another mobile/device. Only 1 login per team is permitted. If your original device was disconnected or lost, ask the quiz host to unlock your team session.`
+      });
+      return;
     }
 
     // Successful login
@@ -1069,6 +1133,17 @@ io.on("connection", (socket: Socket) => {
 
     if (teamRecord) {
       const actualName = teamRecord.teamName;
+
+      // Validate sessionToken: if team is already registered to a session, ensure incoming sessionToken matches!
+      if (teamRecord.sessionToken && sessionToken && teamRecord.sessionToken !== sessionToken) {
+        socket.emit("reconnect-response", {
+          success: false,
+          errorType: "already_logged_in",
+          message: `Team "${actualName}" is registered to another device. Only 1 device per team is allowed.`
+        });
+        return;
+      }
+
       teamRecord.socketId = socket.id;
       teamRecord.connected = true;
       if (!teamRecord.sessionToken) teamRecord.sessionToken = sessionToken;
@@ -2064,6 +2139,22 @@ app.post("/api/team/login", (req, res) => {
   }
 
   const team = quizState.teams[canonicalName];
+
+  // STRICT SINGLE-DEVICE LOGIN GUARD:
+  // If team is already connected or registered to a session, strictly reject any other device!
+  const existingSocket = team.socketId ? io.sockets.sockets.get(team.socketId) : null;
+  const isSocketAlive = Boolean(existingSocket && existingSocket.connected && (!socketId || existingSocket.id !== socketId));
+  const incomingToken = (req.headers["x-session-token"] as string) || req.body?.sessionToken;
+  const isSameSession = Boolean(team.sessionToken && incomingToken && team.sessionToken === incomingToken);
+
+  if ((team.connected || isSocketAlive || team.sessionToken) && !isSameSession) {
+    return res.status(409).json({
+      success: false,
+      errorType: "already_logged_in",
+      message: `Team "${canonicalName}" is already logged in on another mobile/device. Only 1 device per team is permitted. If your original device was lost or disconnected, ask the host to unlock your team session.`
+    });
+  }
+
   const sessionToken = team.sessionToken || `tok_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   team.sessionToken = sessionToken;
   team.connected = true;
@@ -2071,13 +2162,6 @@ app.post("/api/team/login", (req, res) => {
   if (socketId) {
     const clientSocket = io.sockets.sockets.get(socketId);
     if (clientSocket) {
-      if (team.socketId && team.socketId !== socketId) {
-        const oldSocket = io.sockets.sockets.get(team.socketId);
-        if (oldSocket) {
-          oldSocket.leave("teams-room");
-          delete oldSocket.data.teamName;
-        }
-      }
       team.socketId = socketId;
       clientSocket.join("teams-room");
       clientSocket.data.teamName = canonicalName;
