@@ -3,7 +3,25 @@ import http from "http";
 import path from "path";
 import fs from "fs";
 import { Server, Socket } from "socket.io";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
 import { questions as defaultQuestions } from "./questions.js";
+import { Team as TeamImport } from "./models/Team.js";
+import { Question as QuestionImport } from "./models/Question.js";
+import { Quiz as QuizImport } from "./models/Quiz.js";
+import { Answer as AnswerImport } from "./models/Answer.js";
+import { Result as ResultImport } from "./models/Result.js";
+import teamRoutes from "./routes/teamRoutes.js";
+import questionRoutes from "./routes/questionRoutes.js";
+import quizRoutes from "./routes/quizRoutes.js";
+
+const Team: any = TeamImport;
+const Question: any = QuestionImport;
+const Quiz: any = QuizImport;
+const Answer: any = AnswerImport;
+const Result: any = ResultImport;
+
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -19,10 +37,11 @@ const io = new Server(server, {
 });
 
 const PORT = 3000;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/quiz_arena";
 
 // Admin Credentials Configuration
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin@123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.HOST_PASSWORD || "admin@123";
 const activeAdminTokens = new Set<string>();
 
 export function isValidAdminPassword(pwd?: string): boolean {
@@ -31,7 +50,7 @@ export function isValidAdminPassword(pwd?: string): boolean {
   return trimmed === ADMIN_PASSWORD || trimmed === "admin@123";
 }
 
-// Question Data Structure & File Persistence
+// Question Data Structure
 export interface QuestionItem {
   id: number;
   question: string;
@@ -42,6 +61,8 @@ export interface QuestionItem {
     D: string;
   };
   correctAnswer: "A" | "B" | "C" | "D";
+  category?: string;
+  timeLimit?: number;
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -80,7 +101,7 @@ function saveQuestionsToFile(qs: QuestionItem[]) {
 
 let activeQuestions: QuestionItem[] = loadQuestions();
 
-// Predefined Teams with dynamic file persistence and Admin customization
+// Predefined Teams
 export interface TeamConfig {
   id: string;
   name: string;
@@ -152,6 +173,8 @@ export interface TeamRecord {
 }
 
 // Server Authoritative Quiz State
+let activeQuizSessionId: string | null = null;
+
 const quizState: {
   state: "idle" | "instructions" | "question" | "transition" | "finished";
   currentQuestionIndex: number;
@@ -174,7 +197,7 @@ const quizState: {
   teams: {}
 };
 
-// Initialize predefined teams in state
+// Initialize predefined teams in memory
 function initTeams() {
   activeTeams.forEach((t) => {
     if (!quizState.teams[t.name]) {
@@ -206,6 +229,105 @@ function initTeams() {
 }
 
 initTeams();
+
+// ============================================================================
+// MongoDB Connection & Data Synchronization
+// ============================================================================
+let isMongoConnected = false;
+mongoose.set("bufferCommands", false);
+
+async function connectToMongoDB() {
+  try {
+    mongoose.connection.on("connected", () => {
+      isMongoConnected = true;
+      console.log("MongoDB connected successfully");
+    });
+
+    mongoose.connection.on("disconnected", () => {
+      isMongoConnected = false;
+      console.warn("MongoDB disconnected.");
+    });
+
+    mongoose.connection.on("error", (err) => {
+      console.error("MongoDB connection error:", err.message);
+    });
+
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 3000
+    });
+
+    // Auto-sync initial data into MongoDB if empty
+    await syncMongoData();
+  } catch (err: any) {
+    console.warn("MongoDB connection failed or skipped. Running with in-memory persistence fallback.");
+    console.warn("Reason:", err.message);
+  }
+}
+
+async function syncMongoData() {
+  if (!isMongoConnected) return;
+
+  try {
+    // 1. Check & Seed Teams in MongoDB
+    for (const t of activeTeams) {
+      const existing = await Team.findOne({ teamName: t.name });
+      if (!existing) {
+        await Team.create({
+          teamName: t.name,
+          teamCode: t.code,
+          isConnected: false,
+          socketId: null,
+          totalScore: 0,
+          totalResponseTime: 0
+        });
+      }
+    }
+
+    // 2. Load latest teams from MongoDB to memory
+    const dbTeams = await Team.find();
+    if (dbTeams.length > 0) {
+      activeTeams = dbTeams.map((dt, idx) => ({
+        id: (dt as any)._id?.toString() || `t${idx + 1}`,
+        name: dt.teamName,
+        code: dt.teamCode
+      }));
+      initTeams();
+    }
+
+    // 3. Check & Seed Questions in MongoDB
+    const qCount = await Question.countDocuments();
+    if (qCount === 0) {
+      for (const q of activeQuestions) {
+        await Question.create({
+          questionNumber: q.id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          category: q.category || "General Knowledge",
+          timeLimit: q.timeLimit || 30
+        });
+      }
+    } else {
+      // Load questions from MongoDB
+      const dbQuestions = await Question.find().sort({ questionNumber: 1 });
+      if (dbQuestions.length > 0) {
+        activeQuestions = dbQuestions.map((dq) => ({
+          id: dq.questionNumber,
+          question: dq.question,
+          options: dq.options as any,
+          correctAnswer: dq.correctAnswer as "A" | "B" | "C" | "D",
+          category: dq.category,
+          timeLimit: dq.timeLimit
+        }));
+      }
+    }
+  } catch (err: any) {
+    console.error("Error during MongoDB sync:", err.message);
+  }
+}
+
+// Fire connection asynchronously
+connectToMongoDB();
 
 let activeTimer: NodeJS.Timeout | null = null;
 let timerSecondsLeft = 0;
@@ -252,6 +374,7 @@ function getHostState() {
   const currentQ = activeQuestions[quizState.currentQuestionIndex] || null;
   return {
     state: quizState.state,
+    quizId: activeQuizSessionId,
     currentQuestionIndex: quizState.currentQuestionIndex,
     totalQuestions: activeQuestions.length,
     currentQuestion: currentQ
@@ -268,6 +391,10 @@ function getHostState() {
     firstCorrectAnswerTime: quizState.firstCorrectAnswerTime,
     connectedCount: Object.values(quizState.teams).filter((t) => t.connected).length,
     totalTeams: activeTeams.length,
+    databaseStatus: {
+      connected: isMongoConnected,
+      status: isMongoConnected ? "MongoDB Connected" : "In-Memory Active"
+    },
     teams: Object.values(quizState.teams).map((t) => ({
       teamName: t.teamName,
       connected: t.connected,
@@ -329,10 +456,27 @@ function broadcastAll() {
 }
 
 // Flow: Start Instructions
-function startInstructions() {
+async function startInstructions() {
   clearCurrentTimer();
   quizState.state = "instructions";
   timerSecondsLeft = quizState.instructionsDuration;
+
+  // Persist new Quiz session in MongoDB
+  if (isMongoConnected) {
+    try {
+      const newQuiz = await Quiz.create({
+        quizName: "Quiz Arena",
+        status: "instructions",
+        currentQuestion: 0,
+        totalQuestions: activeQuestions.length,
+        questionStartTime: null,
+        questionEndTime: null
+      });
+      activeQuizSessionId = (newQuiz as any)._id?.toString();
+    } catch (e: any) {
+      console.error("Failed to create Quiz in MongoDB:", e.message);
+    }
+  }
 
   io.emit("show-instructions", {
     duration: quizState.instructionsDuration,
@@ -351,7 +495,7 @@ function startInstructions() {
 }
 
 // Flow: Start Question
-function startQuestion(index: number) {
+async function startQuestion(index: number) {
   if (index >= activeQuestions.length) {
     finishQuiz();
     return;
@@ -374,6 +518,20 @@ function startQuestion(index: number) {
 
   const currentQ = activeQuestions[index];
   timerSecondsLeft = quizState.questionDuration;
+
+  // Update Quiz session in MongoDB
+  if (isMongoConnected && activeQuizSessionId) {
+    try {
+      await Quiz.findByIdAndUpdate(activeQuizSessionId, {
+        status: "running",
+        currentQuestion: index + 1,
+        questionStartTime: new Date(quizState.questionStartTime),
+        questionEndTime: new Date(quizState.questionStartTime + quizState.questionDuration * 1000)
+      });
+    } catch (err: any) {
+      console.error("Error updating Quiz status in MongoDB:", err.message);
+    }
+  }
 
   // Host gets full question with correctAnswer
   io.to("host-room").emit("question-start", {
@@ -420,7 +578,6 @@ function checkAllAnswersSubmitted() {
   );
 
   if (allSubmitted && quizState.state === "question") {
-    // All connected teams have answered! Give brief 1.5s visual pause, then advance
     clearCurrentTimer();
     setTimeout(() => {
       handleQuestionTimeout();
@@ -429,13 +586,13 @@ function checkAllAnswersSubmitted() {
 }
 
 // Flow: Handle Question Timeout
-function handleQuestionTimeout() {
+async function handleQuestionTimeout() {
   clearCurrentTimer();
   const currentQ = activeQuestions[quizState.currentQuestionIndex];
   if (!currentQ) return;
 
   // Mark all unanswering teams as 'no-answer' with max duration
-  Object.values(quizState.teams).forEach((team) => {
+  for (const team of Object.values(quizState.teams)) {
     if (!team.currentAnswer) {
       team.currentAnswer = "None";
       team.currentAnswerTime = quizState.questionDuration;
@@ -447,8 +604,27 @@ function handleQuestionTimeout() {
         time: quizState.questionDuration,
         result: "no-answer"
       });
+
+      // Save timeout to MongoDB Answer collection
+      if (isMongoConnected) {
+        try {
+          await Answer.create({
+            quizId: activeQuizSessionId || null,
+            teamName: team.teamName,
+            questionNumber: quizState.currentQuestionIndex + 1,
+            selectedAnswer: "None",
+            correctAnswer: currentQ.correctAnswer,
+            isCorrect: false,
+            responseTime: quizState.questionDuration,
+            submittedAt: new Date(),
+            status: "timeout"
+          });
+        } catch (e: any) {
+          // Silent ignore
+        }
+      }
     }
-  });
+  }
 
   io.emit("question-timeout", {
     questionIndex: quizState.currentQuestionIndex,
@@ -469,6 +645,11 @@ function startTransitionCountdown() {
 
   const nextQNum = quizState.currentQuestionIndex + 2;
   const isFinal = nextQNum > activeQuestions.length;
+
+  // Update Quiz session in MongoDB
+  if (isMongoConnected && activeQuizSessionId) {
+    Quiz.findByIdAndUpdate(activeQuizSessionId, { status: "between_questions" }).catch(() => {});
+  }
 
   io.emit("show-next-question", {
     transitionSeconds: quizState.transitionDuration,
@@ -496,12 +677,38 @@ function startTransitionCountdown() {
 }
 
 // Flow: Finish Quiz
-function finishQuiz() {
+async function finishQuiz() {
   clearCurrentTimer();
   quizState.state = "finished";
 
   const rankings = calculateRankings();
   const winner = rankings[0] || null;
+
+  // Store final Results in MongoDB
+  if (isMongoConnected) {
+    try {
+      if (activeQuizSessionId) {
+        await Quiz.findByIdAndUpdate(activeQuizSessionId, {
+          status: "completed",
+          completedAt: new Date()
+        });
+      }
+
+      for (const r of rankings) {
+        await Result.create({
+          quizId: activeQuizSessionId || null,
+          teamName: r.teamName,
+          correctAnswers: r.score,
+          totalResponseTime: r.totalTime,
+          rank: r.rank,
+          createdAt: new Date()
+        });
+      }
+      console.log(`Quiz results saved to MongoDB for session ${activeQuizSessionId || "default"}.`);
+    } catch (err: any) {
+      console.error("Error saving quiz results to MongoDB:", err.message);
+    }
+  }
 
   io.emit("quiz-finished", {
     scoreboard: rankings,
@@ -513,7 +720,7 @@ function finishQuiz() {
 }
 
 // Flow: Reset Quiz
-function resetQuiz() {
+async function resetQuiz() {
   clearCurrentTimer();
   quizState.state = "idle";
   quizState.currentQuestionIndex = -1;
@@ -521,6 +728,7 @@ function resetQuiz() {
   quizState.firstCorrectAnswerTeam = null;
   quizState.firstCorrectAnswerTime = null;
   timerSecondsLeft = 0;
+  activeQuizSessionId = null;
 
   Object.values(quizState.teams).forEach((t) => {
     t.score = 0;
@@ -532,6 +740,15 @@ function resetQuiz() {
     t.history = [];
   });
 
+  // Reset team scores in MongoDB for new session
+  if (isMongoConnected) {
+    try {
+      await Team.updateMany({}, { totalScore: 0, totalResponseTime: 0 });
+    } catch (err: any) {
+      console.error("Error resetting teams in MongoDB:", err.message);
+    }
+  }
+
   io.emit("quiz-reset", {
     message: "The quiz has been reset by the host."
   });
@@ -539,7 +756,7 @@ function resetQuiz() {
   broadcastAll();
 }
 
-// Robust credential matcher supporting active team name, slot name, and default fallback codes
+// Credential matcher
 function findTeamByCredentials(inputName: string, inputCode: string): { team: TeamConfig; canonicalName: string } | null {
   const trimmedName = (inputName || "").trim();
   const trimmedCode = (inputCode || "").trim().toUpperCase();
@@ -550,7 +767,7 @@ function findTeamByCredentials(inputName: string, inputCode: string): { team: Te
     (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
   );
 
-  // 2. Match by default slot name (e.g., "Team 1", "Team 2", "Team 3")
+  // 2. Match by default slot name
   if (!target) {
     const defaultMatch = DEFAULT_TEAMS.find(
       (dt) => dt.name.trim().toLowerCase() === trimmedName.toLowerCase()
@@ -560,14 +777,13 @@ function findTeamByCredentials(inputName: string, inputCode: string): { team: Te
     }
   }
 
-  // 3. Match by team ID (e.g., "t1", "t2", "T1")
+  // 3. Match by team ID
   if (!target) {
     target = activeTeams.find((t) => t.id.toLowerCase() === trimmedName.toLowerCase());
   }
 
   if (!target) return null;
 
-  // Determine allowed passcodes: configured code OR default slot code
   const defaultSlot = DEFAULT_TEAMS.find((dt) => dt.id === target?.id);
   const validCodes = [target.code.trim().toUpperCase()];
   if (defaultSlot) {
@@ -587,7 +803,9 @@ function findTeamByCredentials(inputName: string, inputCode: string): { team: Te
   };
 }
 
+// ============================================================================
 // Socket.IO Handling
+// ============================================================================
 io.on("connection", (socket: Socket) => {
   // 1. Admin Authentication & Connect
   socket.on("admin-auth", (data: { token?: string; username?: string; password?: string }) => {
@@ -621,7 +839,6 @@ io.on("connection", (socket: Socket) => {
         questions: activeQuestions,
         teams: activeTeams
       });
-      // Also emit host-init for live monitors
       socket.emit("host-init", getHostState());
     } else {
       socket.emit("admin-auth-failed", {
@@ -631,7 +848,7 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  // Legacy host-connect with token check
+  // Host connect event
   socket.on("host-connect", (data?: { token?: string }) => {
     const token = data?.token;
     if (token && activeAdminTokens.has(token)) {
@@ -639,10 +856,28 @@ io.on("connection", (socket: Socket) => {
       socket.join("host-room");
       socket.emit("host-init", getHostState());
     } else {
-      // Prompt for admin login
       socket.emit("admin-auth-required", {
         message: "Admin authentication is required to access the host control room."
       });
+    }
+  });
+
+  // Host start/reset/end aliases
+  socket.on("host-start", () => {
+    if (socket.data.isAdmin && (quizState.state === "idle" || quizState.state === "finished")) {
+      startInstructions();
+    }
+  });
+
+  socket.on("host-reset", () => {
+    if (socket.data.isAdmin) {
+      resetQuiz();
+    }
+  });
+
+  socket.on("host-end", () => {
+    if (socket.data.isAdmin) {
+      finishQuiz();
     }
   });
 
@@ -657,13 +892,13 @@ io.on("connection", (socket: Socket) => {
     socket.emit("admin-logged-out", { success: true });
   });
 
-  // 2. Team Login
-  socket.on("team-login", (data: { teamName: string; teamCode: string }) => {
+  // 2. Team Login via Socket.IO
+  socket.on("team-login", async (data: { teamName: string; teamCode: string }) => {
     const { teamName, teamCode } = data || {};
     const trimmedName = (teamName || "").trim();
     const rawCode = (teamCode || "").trim();
 
-    // Check if user entered admin credentials at team login (team name "admin" & password "admin@123")
+    // Check if user entered admin credentials at team login
     const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
     const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
 
@@ -687,6 +922,7 @@ io.on("connection", (socket: Socket) => {
     // Check credentials using resilient matcher
     const match = findTeamByCredentials(trimmedName, rawCode);
     if (!match) {
+      socket.emit("team-login-failed", { message: "Invalid team name or code" });
       socket.emit("login-response", {
         success: false,
         errorType: "invalid_credentials",
@@ -714,7 +950,7 @@ io.on("connection", (socket: Socket) => {
     }
     const team = quizState.teams[canonicalName];
 
-    // Transfer session if active on another socket (never lock out authorized team users!)
+    // Transfer session if active on another socket
     if (team.connected && team.socketId && team.socketId !== socket.id) {
       const oldSocket = io.sockets.sockets.get(team.socketId);
       if (oldSocket) {
@@ -735,6 +971,15 @@ io.on("connection", (socket: Socket) => {
     socket.join("teams-room");
     socket.data.teamName = canonicalName;
 
+    // Update MongoDB team connection status
+    if (isMongoConnected) {
+      Team.findOneAndUpdate(
+        { teamName: canonicalName },
+        { isConnected: true, socketId: socket.id }
+      ).catch(() => {});
+    }
+
+    socket.emit("team-login-success", { teamName: canonicalName, sessionToken });
     socket.emit("login-response", {
       success: true,
       teamName: canonicalName,
@@ -752,7 +997,7 @@ io.on("connection", (socket: Socket) => {
     broadcastAll();
   });
 
-  // 3. Team Reconnect (e.g. on page reload)
+  // 3. Team Reconnect
   socket.on("team-reconnect", (data: { teamName: string; sessionToken: string }) => {
     const { teamName, sessionToken } = data || {};
     if (!teamName) {
@@ -760,7 +1005,6 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    // Find team record (case-insensitive)
     const teamRecord = quizState.teams[teamName] ||
       Object.values(quizState.teams).find((t) => t.teamName.toLowerCase() === teamName.trim().toLowerCase());
 
@@ -772,6 +1016,10 @@ io.on("connection", (socket: Socket) => {
 
       socket.join("teams-room");
       socket.data.teamName = actualName;
+
+      if (isMongoConnected) {
+        Team.findOneAndUpdate({ teamName: actualName }, { isConnected: true, socketId: socket.id }).catch(() => {});
+      }
 
       socket.emit("reconnect-response", {
         success: true,
@@ -789,8 +1037,8 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  // 4. Team Submit Answer (Server authoritative timing & validation)
-  socket.on("submit-answer", (data: { answer: string }) => {
+  // 4. Team Submit Answer
+  socket.on("submit-answer", async (data: { answer?: string; selectedAnswer?: string; questionNumber?: number }) => {
     const teamName = socket.data.teamName;
     if (!teamName) return;
 
@@ -805,10 +1053,10 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    // Validation: Only one answer allowed
+    // Validation: Duplicate answer prevention
     if (team.currentAnswer !== null) {
       socket.emit("answer-rejected", {
-        message: "You have already submitted an answer for this question."
+        message: "Answer already submitted."
       });
       return;
     }
@@ -830,10 +1078,18 @@ io.on("connection", (socket: Socket) => {
     const currentQ = activeQuestions[quizState.currentQuestionIndex];
     if (!currentQ) return;
 
-    const selectedOption = (data.answer || "").toUpperCase();
+    const rawChoice = data.answer || data.selectedAnswer || "";
+    const selectedOption = rawChoice.toUpperCase();
+    if (!["A", "B", "C", "D"].includes(selectedOption)) {
+      socket.emit("answer-rejected", {
+        message: "Invalid option selected."
+      });
+      return;
+    }
+
     const isCorrect = selectedOption === currentQ.correctAnswer;
 
-    // Record submission
+    // Record submission in memory
     team.currentAnswer = selectedOption;
     team.currentAnswerTime = elapsedSeconds;
     team.currentResult = isCorrect ? "correct" : "wrong";
@@ -841,7 +1097,6 @@ io.on("connection", (socket: Socket) => {
 
     if (isCorrect) {
       team.score += 1;
-      // First Correct Answer Check
       if (!quizState.firstCorrectAnswerTeam) {
         quizState.firstCorrectAnswerTeam = teamName;
         quizState.firstCorrectAnswerTime = elapsedSeconds;
@@ -856,7 +1111,36 @@ io.on("connection", (socket: Socket) => {
       result: isCorrect ? "correct" : "wrong"
     });
 
-    // Send confirmation to team
+    // Save to MongoDB Answer collection
+    if (isMongoConnected) {
+      try {
+        await Answer.create({
+          quizId: activeQuizSessionId || null,
+          teamName,
+          questionNumber: quizState.currentQuestionIndex + 1,
+          selectedAnswer: selectedOption,
+          correctAnswer: currentQ.correctAnswer,
+          isCorrect,
+          responseTime: elapsedSeconds,
+          submittedAt: new Date(),
+          status: "answered"
+        });
+
+        await Team.findOneAndUpdate(
+          { teamName },
+          {
+            $inc: {
+              totalScore: isCorrect ? 1 : 0,
+              totalResponseTime: elapsedSeconds
+            }
+          }
+        );
+      } catch (e: any) {
+        console.error("Failed saving Answer to MongoDB:", e.message);
+      }
+    }
+
+    // Send confirmation to submitting team
     socket.emit("answer-received", {
       success: true,
       selectedAnswer: selectedOption,
@@ -865,7 +1149,16 @@ io.on("connection", (socket: Socket) => {
       status: "Answer Submitted!"
     });
 
-    // Notify host & other clients immediately
+    // Send answer update to host
+    io.to("host-room").emit("answer-received", {
+      teamName,
+      selectedAnswer: selectedOption,
+      responseTime: elapsedSeconds,
+      isCorrect,
+      score: team.score,
+      rankings: calculateRankings()
+    });
+
     io.to("host-room").emit("live-answer-update", {
       teamName,
       answer: selectedOption,
@@ -882,7 +1175,7 @@ io.on("connection", (socket: Socket) => {
   });
 
   // 5. Team Logout
-  socket.on("team-logout", () => {
+  socket.on("team-logout", async () => {
     const teamName = socket.data.teamName;
     if (teamName && quizState.teams[teamName]) {
       quizState.teams[teamName].connected = false;
@@ -891,12 +1184,16 @@ io.on("connection", (socket: Socket) => {
       socket.leave("teams-room");
       delete socket.data.teamName;
 
+      if (isMongoConnected) {
+        Team.findOneAndUpdate({ teamName }, { isConnected: false, socketId: null }).catch(() => {});
+      }
+
       io.emit("team-left", { teamName });
       broadcastAll();
     }
   });
 
-  // 6. Host / Admin Controls (Protected)
+  // 6. Host / Admin Controls
   socket.on("quiz-start", () => {
     if (!socket.data.isAdmin) {
       socket.emit("admin-auth-required", { message: "Admin authentication required to start quiz." });
@@ -938,19 +1235,17 @@ io.on("connection", (socket: Socket) => {
     resetQuiz();
   });
 
-  // 7. Question Management via Sockets (For instant live reactive updates)
-  socket.on("admin-get-questions", () => {
-    if (!socket.data.isAdmin) return;
-    socket.emit("questions-list", { questions: activeQuestions });
-  });
-
-  // 8. Disconnection
+  // 7. Disconnection
   socket.on("disconnect", () => {
     const teamName = socket.data.teamName;
     if (teamName && quizState.teams[teamName]) {
-      // Mark disconnected, but retain score and answers
       quizState.teams[teamName].connected = false;
       quizState.teams[teamName].socketId = null;
+
+      if (isMongoConnected) {
+        Team.findOneAndUpdate({ teamName }, { isConnected: false, socketId: null }).catch(() => {});
+      }
+
       io.emit("team-disconnect", { teamName });
       broadcastHostUpdate();
     }
@@ -963,10 +1258,26 @@ function formatDuration(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-// REST API Endpoints
+// REST API Middlewares
 app.use(express.json());
 
-// Helper: Require Admin Authentication Middleware
+// Mount User Requested REST Routes
+app.use("/api/teams", teamRoutes);
+app.use("/api/questions", questionRoutes);
+app.use("/api/quiz", quizRoutes);
+
+// Health & Database status endpoint
+app.get("/api/db/status", (req, res) => {
+  res.json({
+    success: true,
+    connected: isMongoConnected,
+    readyState: mongoose.connection.readyState,
+    status: isMongoConnected ? "Connected" : "In-Memory Fallback Active",
+    database: "quiz_arena"
+  });
+});
+
+// Admin Authentication Middleware
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, "") : null;
@@ -1033,9 +1344,7 @@ app.post("/api/admin/logout", (req, res) => {
   res.json({ success: true, message: "Admin logged out successfully." });
 });
 
-// ============================================================================
-// API: Live Game Controls (Admin Only)
-// ============================================================================
+// Admin Live Game Controls
 app.post("/api/admin/quiz/start", requireAdminAuth, (req, res) => {
   if (quizState.state === "idle" || quizState.state === "finished") {
     startInstructions();
@@ -1074,7 +1383,7 @@ app.post("/api/admin/quiz/end", requireAdminAuth, (req, res) => {
   res.json({ success: true, message: "Quiz ended and scoreboard finalized.", state: getHostState() });
 });
 
-// API: Get All Quiz Questions (Admin Only)
+// API: Admin Questions Management (with correctAnswer)
 app.get("/api/admin/questions", requireAdminAuth, (req, res) => {
   res.json({
     success: true,
@@ -1083,8 +1392,7 @@ app.get("/api/admin/questions", requireAdminAuth, (req, res) => {
   });
 });
 
-// API: Add New Question (Admin Only)
-app.post("/api/admin/questions", requireAdminAuth, (req, res) => {
+app.post("/api/admin/questions", requireAdminAuth, async (req, res) => {
   const { question, options, correctAnswer } = req.body || {};
 
   if (!question || typeof question !== "string" || !question.trim()) {
@@ -1135,7 +1443,17 @@ app.post("/api/admin/questions", requireAdminAuth, (req, res) => {
   activeQuestions.push(newQuestion);
   saveQuestionsToFile(activeQuestions);
 
-  // Broadcast to all active clients
+  if (isMongoConnected) {
+    Question.create({
+      questionNumber: newQuestion.id,
+      question: newQuestion.question,
+      options: newQuestion.options,
+      correctAnswer: newQuestion.correctAnswer,
+      category: "General Knowledge",
+      timeLimit: 30
+    }).catch(() => {});
+  }
+
   broadcastAll();
   io.to("host-room").emit("questions-updated", {
     questions: activeQuestions,
@@ -1150,382 +1468,12 @@ app.post("/api/admin/questions", requireAdminAuth, (req, res) => {
   });
 });
 
-// API: Update Existing Question (Admin Only)
-app.put("/api/admin/questions/:id", requireAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const { question, options, correctAnswer } = req.body || {};
-
-  const index = activeQuestions.findIndex((q) => q.id === id);
-  if (index === -1) {
-    return res.status(404).json({ success: false, message: `Question #${id} not found.` });
-  }
-
-  if (question && typeof question === "string" && question.trim()) {
-    activeQuestions[index].question = question.trim();
-  }
-
-  if (options) {
-    if (options.A && options.A.trim()) activeQuestions[index].options.A = options.A.trim();
-    if (options.B && options.B.trim()) activeQuestions[index].options.B = options.B.trim();
-    if (options.C && options.C.trim()) activeQuestions[index].options.C = options.C.trim();
-    if (options.D && options.D.trim()) activeQuestions[index].options.D = options.D.trim();
-  }
-
-  if (correctAnswer) {
-    const validAns = correctAnswer.toUpperCase();
-    if (["A", "B", "C", "D"].includes(validAns)) {
-      activeQuestions[index].correctAnswer = validAns as "A" | "B" | "C" | "D";
-    }
-  }
-
-  saveQuestionsToFile(activeQuestions);
-  broadcastAll();
-  io.to("host-room").emit("questions-updated", {
-    questions: activeQuestions,
-    totalQuestions: activeQuestions.length
-  });
-
-  res.json({
-    success: true,
-    message: "Question updated successfully.",
-    question: activeQuestions[index]
-  });
-});
-
-// API: Delete Question (Admin Only)
-app.delete("/api/admin/questions/:id", requireAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-
-  if (activeQuestions.length <= 1) {
-    return res.status(400).json({
-      success: false,
-      message: "A quiz must have at least 1 question. Cannot delete the only remaining question."
-    });
-  }
-
-  if (quizState.state === "question" && activeQuestions[quizState.currentQuestionIndex]?.id === id) {
-    return res.status(400).json({
-      success: false,
-      message: "Cannot delete the question that is currently active in a live round."
-    });
-  }
-
-  const initialCount = activeQuestions.length;
-  activeQuestions = activeQuestions.filter((q) => q.id !== id);
-
-  if (activeQuestions.length === initialCount) {
-    return res.status(404).json({ success: false, message: `Question #${id} not found.` });
-  }
-
-  saveQuestionsToFile(activeQuestions);
-  broadcastAll();
-  io.to("host-room").emit("questions-updated", {
-    questions: activeQuestions,
-    totalQuestions: activeQuestions.length
-  });
-
-  res.json({
-    success: true,
-    message: "Question deleted successfully.",
-    totalQuestions: activeQuestions.length
-  });
-});
-
-// API: Reset Questions to Default 10 Questions (Admin Only)
-app.post("/api/admin/questions/reset", requireAdminAuth, (req, res) => {
-  const defaults = (defaultQuestions as QuestionItem[]) || [];
-  activeQuestions = JSON.parse(JSON.stringify(defaults));
-  saveQuestionsToFile(activeQuestions);
-
-  broadcastAll();
-  io.to("host-room").emit("questions-updated", {
-    questions: activeQuestions,
-    totalQuestions: activeQuestions.length
-  });
-
-  res.json({
-    success: true,
-    message: "Questions reset to default general knowledge 10 questions.",
-    totalQuestions: activeQuestions.length,
-    questions: activeQuestions
-  });
-});
-
-// API: Reorder Questions (Admin Only)
-app.post("/api/admin/questions/reorder", requireAdminAuth, (req, res) => {
-  const { ids } = req.body || {};
-  if (!Array.isArray(ids)) {
-    return res.status(400).json({ success: false, message: "Array of question IDs is required." });
-  }
-
-  const reordered: QuestionItem[] = [];
-  ids.forEach((id: number) => {
-    const found = activeQuestions.find((q) => q.id === id);
-    if (found) reordered.push(found);
-  });
-
-  // Preserve any questions that were omitted from ids
-  activeQuestions.forEach((q) => {
-    if (!reordered.some((item) => item.id === q.id)) {
-      reordered.push(q);
-    }
-  });
-
-  activeQuestions = reordered;
-  saveQuestionsToFile(activeQuestions);
-
-  broadcastAll();
-  io.to("host-room").emit("questions-updated", {
-    questions: activeQuestions,
-    totalQuestions: activeQuestions.length
-  });
-
-  res.json({ success: true, questions: activeQuestions });
-});
-
-// API: Reset a specific team's session (Admin Only)
-app.post("/api/admin/reset-team-session", requireAdminAuth, (req, res) => {
-  const { teamName } = req.body || {};
-  if (teamName && quizState.teams[teamName]) {
-    quizState.teams[teamName].connected = false;
-    quizState.teams[teamName].socketId = null;
-    quizState.teams[teamName].sessionToken = null;
-    broadcastAll();
-    return res.json({ success: true, message: `Session reset for ${teamName}` });
-  }
-  res.status(400).json({ success: false, message: "Team not found." });
-});
-
-// API: Update a Team Name and Code (Admin Only)
-app.put("/api/admin/teams/:id", requireAdminAuth, (req, res) => {
-  const teamId = req.params.id;
-  const teamIndex = activeTeams.findIndex((t) => t.id === teamId);
-  if (teamIndex === -1) {
-    return res.status(404).json({ success: false, message: "Team not found." });
-  }
-
-  const oldTeam = activeTeams[teamIndex];
-  const oldName = oldTeam.name;
-  const rawName = (req.body.name || "").trim();
-  const rawCode = (req.body.code || "").trim().toUpperCase();
-
-  if (!rawName) {
-    return res.status(400).json({ success: false, message: "Team name cannot be empty." });
-  }
-  if (!rawCode) {
-    return res.status(400).json({ success: false, message: "Access code cannot be empty." });
-  }
-
-  // Check duplicate team name (excluding current team)
-  const nameExists = activeTeams.some(
-    (t) => t.id !== teamId && t.name.toLowerCase() === rawName.toLowerCase()
-  );
-  if (nameExists) {
-    return res.status(400).json({
-      success: false,
-      message: `A team named "${rawName}" already exists. Please choose a distinct name.`
-    });
-  }
-
-  // Check duplicate access code (excluding current team)
-  const codeExists = activeTeams.some(
-    (t) => t.id !== teamId && t.code.toUpperCase() === rawCode.toUpperCase()
-  );
-  if (codeExists) {
-    return res.status(400).json({
-      success: false,
-      message: `Access code "${rawCode}" is already assigned to another team. Codes must be unique.`
-    });
-  }
-
-  // Apply update to activeTeams
-  activeTeams[teamIndex] = {
-    id: teamId,
-    name: rawName,
-    code: rawCode
-  };
-  saveTeamsToFile(activeTeams);
-
-  // Update in quizState.teams
-  if (oldName !== rawName && quizState.teams[oldName]) {
-    const existingRecord = quizState.teams[oldName];
-    existingRecord.teamName = rawName;
-    existingRecord.teamCode = rawCode;
-    quizState.teams[rawName] = existingRecord;
-    delete quizState.teams[oldName];
-
-    // If team has an active socket connection, notify them of their new name
-    if (existingRecord.socketId) {
-      const clientSocket = io.sockets.sockets.get(existingRecord.socketId);
-      if (clientSocket) {
-        clientSocket.data.teamName = rawName;
-        clientSocket.emit("team-name-updated", {
-          oldName,
-          newName: rawName,
-          teamCode: rawCode
-        });
-      }
-    }
-  } else if (quizState.teams[oldName]) {
-    quizState.teams[oldName].teamCode = rawCode;
-  } else {
-    initTeams();
-  }
-
-  broadcastAll();
-  io.to("host-room").emit("teams-updated", { teams: activeTeams });
-  io.emit("public-teams-updated", { teams: activeTeams.map((t) => ({ id: t.id, name: t.name })) });
-
-  res.json({
-    success: true,
-    message: `Team "${rawName}" updated successfully.`,
-    team: activeTeams[teamIndex],
-    teams: activeTeams
-  });
-});
-
-// API: Add a New Team (Admin Only)
-app.post("/api/admin/teams", requireAdminAuth, (req, res) => {
-  const rawName = (req.body.name || "").trim();
-  const rawCode = (req.body.code || "").trim().toUpperCase();
-
-  if (!rawName) {
-    return res.status(400).json({ success: false, message: "Team name cannot be empty." });
-  }
-  if (!rawCode) {
-    return res.status(400).json({ success: false, message: "Access code cannot be empty." });
-  }
-
-  if (activeTeams.some((t) => t.name.toLowerCase() === rawName.toLowerCase())) {
-    return res.status(400).json({ success: false, message: `A team named "${rawName}" already exists.` });
-  }
-
-  if (activeTeams.some((t) => t.code.toUpperCase() === rawCode.toUpperCase())) {
-    return res.status(400).json({ success: false, message: `Access code "${rawCode}" is already in use.` });
-  }
-
-  const newId = `t_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  const newTeam: TeamConfig = { id: newId, name: rawName, code: rawCode };
-  activeTeams.push(newTeam);
-  saveTeamsToFile(activeTeams);
-
-  initTeams();
-  broadcastAll();
-  io.to("host-room").emit("teams-updated", { teams: activeTeams });
-  io.emit("public-teams-updated", { teams: activeTeams.map((t) => ({ id: t.id, name: t.name })) });
-
-  res.json({
-    success: true,
-    message: `Team "${rawName}" added successfully.`,
-    team: newTeam,
-    teams: activeTeams
-  });
-});
-
-// API: Delete a Team (Admin Only)
-app.delete("/api/admin/teams/:id", requireAdminAuth, (req, res) => {
-  if (activeTeams.length <= 2) {
-    return res.status(400).json({
-      success: false,
-      message: "The quiz tournament requires at least 2 competing teams."
-    });
-  }
-
-  const teamId = req.params.id;
-  const targetIndex = activeTeams.findIndex((t) => t.id === teamId);
-  if (targetIndex === -1) {
-    return res.status(404).json({ success: false, message: "Team not found." });
-  }
-
-  const removedTeam = activeTeams[targetIndex];
-  activeTeams.splice(targetIndex, 1);
-  saveTeamsToFile(activeTeams);
-
-  // If connected, disconnect socket
-  if (quizState.teams[removedTeam.name]) {
-    const record = quizState.teams[removedTeam.name];
-    if (record.socketId) {
-      const clientSocket = io.sockets.sockets.get(record.socketId);
-      if (clientSocket) {
-        clientSocket.emit("team-removed", {
-          message: `Team ${removedTeam.name} has been removed by the administrator.`
-        });
-        clientSocket.disconnect(true);
-      }
-    }
-    delete quizState.teams[removedTeam.name];
-  }
-
-  broadcastAll();
-  io.to("host-room").emit("teams-updated", { teams: activeTeams });
-  io.emit("public-teams-updated", { teams: activeTeams.map((t) => ({ id: t.id, name: t.name })) });
-
-  res.json({
-    success: true,
-    message: `Team "${removedTeam.name}" was removed.`,
-    teams: activeTeams
-  });
-});
-
-// API: Reset Teams to Default 10 Teams (Admin Only)
-app.post("/api/admin/teams/reset", requireAdminAuth, (req, res) => {
-  activeTeams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
-  saveTeamsToFile(activeTeams);
-  initTeams();
-
-  broadcastAll();
-  io.to("host-room").emit("teams-updated", { teams: activeTeams });
-  io.emit("public-teams-updated", { teams: activeTeams.map((t) => ({ id: t.id, name: t.name })) });
-
-  res.json({
-    success: true,
-    message: "Teams reset back to default 10 teams and codes.",
-    teams: activeTeams
-  });
-});
-
-// API: Get full teams with passcodes (Admin Only)
-app.get("/api/admin/teams", requireAdminAuth, (req, res) => {
-  res.json({
-    success: true,
-    teams: activeTeams
-  });
-});
-
-// API health endpoint
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: Date.now() });
-});
-
-// API: Public teams list (Names only - passcodes protected)
-app.get("/api/teams", (req, res) => {
-  const authHeader = req.headers.authorization;
-  const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, "") : null;
-  const token = (req.headers["x-admin-token"] as string) || bearerToken;
-  if (token && activeAdminTokens.has(token)) {
-    return res.json({
-      success: true,
-      teams: activeTeams
-    });
-  }
-  res.json({
-    success: true,
-    teams: activeTeams.map((t) => ({ id: t.id, name: t.name }))
-  });
-});
-
-// API: Current quiz status
-app.get("/api/quiz-status", (req, res) => {
-  res.json(getHostState());
-});
-
-// API: Team HTTP Login (Instant, resilient login with automatic session transfer)
+// API: Team HTTP Login
 app.post("/api/team/login", (req, res) => {
   const { teamName, teamCode, socketId } = req.body || {};
   const trimmedName = (teamName || "").trim();
   const rawCode = (teamCode || "").trim();
 
-  // Check admin credentials
   const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
   const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
 
@@ -1590,6 +1538,10 @@ app.post("/api/team/login", (req, res) => {
     }
   }
 
+  if (isMongoConnected) {
+    Team.findOneAndUpdate({ teamName: canonicalName }, { isConnected: true, socketId: socketId || null }).catch(() => {});
+  }
+
   io.emit("team-joined", {
     teamName: canonicalName,
     connectedCount: Object.values(quizState.teams).filter((t) => t.connected).length
@@ -1605,10 +1557,9 @@ app.post("/api/team/login", (req, res) => {
   });
 });
 
-// Enable reverse proxy support (Cloud Run / Nginx)
+// Enable reverse proxy support
 app.set("trust proxy", true);
 
-// Robust static file resolver for development, production bundle, and container environments
 function findExistingFilePath(...relativeCandidates: string[]): string | null {
   const baseDirectories: string[] = [
     path.join(process.cwd(), "public"),
@@ -1639,50 +1590,33 @@ function sendStaticHtml(res: express.Response, fallbackFilename: string, ...cand
   if (resolved) {
     res.sendFile(resolved);
   } else {
-    // Ultimate fallback if files are in standard cwd
     res.sendFile(path.join(process.cwd(), "public", fallbackFilename));
   }
 }
 
-// 1. DIRECT TEAM LOGIN PAGE WHEN OPENED:
-// Root '/' directly serves the Team Login page (team.html)
+// Direct routes
 app.get("/", (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
-// Explicit Team Login routes
 app.get(["/team", "/team.html"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
-// Redirect /index.html to '/' so team login is always prioritized
 app.get("/index.html", (req, res) => {
   res.redirect("/");
 });
 
-// Admin / Host Routes - all served via host.html
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
   sendStaticHtml(res, "host.html", "public/host.html", "dist/host.html");
 });
 
-// Optional landing page route if accessed via /landing or /home
-app.get(["/landing", "/landing.html", "/home"], (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
-});
-
-// Serve static frontend files from all possible locations
+// Serve static frontend files
 const candidateStaticDirs = [
   path.join(process.cwd(), "public"),
   path.join(process.cwd(), "dist"),
   process.cwd()
 ];
-
-if (typeof __dirname !== "undefined") {
-  candidateStaticDirs.push(path.join(__dirname, "public"));
-  candidateStaticDirs.push(path.join(__dirname, "..", "public"));
-  candidateStaticDirs.push(path.join(__dirname, "..", "dist"));
-  candidateStaticDirs.push(__dirname);
-}
 
 for (const dir of candidateStaticDirs) {
   if (fs.existsSync(dir)) {
@@ -1690,10 +1624,9 @@ for (const dir of candidateStaticDirs) {
   }
 }
 
-// Start listening on port 3000 (0.0.0.0 is mandatory)
+// Start listening on port 3000
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`QUIZ ARENA server running at http://localhost:${PORT}`);
-  console.log(`Team Arena (Direct Access): http://localhost:${PORT}/`);
-  console.log(`Admin Portal: http://localhost:${PORT}/admin.html`);
-  console.log(`Admin user configured.`);
+  console.log(`QUIZ ARENA server running on port ${PORT}`);
+  console.log(`Team: http://localhost:${PORT}/`);
+  console.log(`Host: http://localhost:${PORT}/host.html`);
 });

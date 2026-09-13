@@ -10,11 +10,24 @@ Built with **Node.js**, **Express.js**, **Socket.IO**, and **Vanilla HTML5 / CSS
 
 ```text
 quiz-arena/
-├── server.ts         # Full TypeScript server with Socket.IO authoritative state & timer
+├── server.ts         # Full TypeScript server with Socket.IO authoritative state & MongoDB sync
 ├── server.js         # Native Node.js ESM server entry point
-├── questions.js      # 10 General Knowledge competition questions with options & answer key
-├── package.json      # Dependencies and scripts (Express, Socket.IO, tsx, esbuild)
+├── questions.js      # Default General Knowledge competition questions with options & answer key
+├── seed.js           # Database seeding script for initial teams & questions
+├── package.json      # Dependencies and scripts (Express, Socket.IO, Mongoose, tsx, esbuild)
 ├── README.md         # Full setup, testing guide, and architectural specification
+│
+├── models/           # Mongoose schemas & models
+│   ├── Team.js       # Team model (teamName, teamCode, isConnected, totalScore, totalResponseTime)
+│   ├── Question.js   # Question model (questionNumber, question, options, correctAnswer, timeLimit)
+│   ├── Quiz.js       # Quiz session model (quizName, status, currentQuestion, totalQuestions)
+│   ├── Answer.js     # Team answer submissions (quizId, teamName, questionNumber, answer, responseTime, isCorrect)
+│   └── Result.js     # Final leaderboard records (quizId, teamName, correctAnswers, totalResponseTime, rank)
+│
+├── routes/           # REST API Endpoints
+│   ├── teamRoutes.js     # /api/teams (status, login)
+│   ├── questionRoutes.js # /api/questions (public question list & single question without correctAnswer)
+│   └── quizRoutes.js     # /api/quiz (current session, results, sessions, answers)
 │
 └── public/
     ├── index.html    # SCREEN 1: Modern Landing Page with hero, rules, and team code modal
@@ -28,6 +41,52 @@ quiz-arena/
     ├── host.html     # SCREEN 7: Real-time Host Control Center & Live Projector Screen
     └── host.js       # Host Socket.IO updates, live rankings table, and first-answer detection
 ```
+
+---
+
+## 🗄️ MongoDB Database Integration (Mongoose)
+
+Quiz Arena features a resilient **hybrid architecture**:
+1. **In-Memory Authoritative State**: Sub-millisecond real-time Socket.IO synchronization for question transitions, countdown clocks, first-answer detection, and instant client feedback.
+2. **MongoDB Persistent Storage**: Long-term database persistence for teams, questions, answer records, and tournament final results using Mongoose.
+3. **Automatic Fallback Protection**: If MongoDB is starting up or temporarily unreachable, the arena automatically falls back to in-memory mode without stalling or buffering.
+
+### 1. Connection Options
+
+Set your `MONGODB_URI` environment variable in `.env`:
+
+**Option A: MongoDB Atlas (Cloud)**
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/quiz_arena?retryWrites=true&w=majority
+```
+
+**Option B: Local MongoDB**
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/quiz_arena
+```
+
+### 2. Database Seeding
+
+To populate MongoDB with the 10 predefined competition teams and questions:
+```bash
+node seed.js
+```
+
+*(The server also auto-seeds MongoDB on startup if collections are empty)*
+
+### 3. REST API Endpoints
+
+| Endpoint | Method | Description |
+|:---|:---|:---|
+| `/api/questions` | `GET` | Retrieve competition questions *(sanitized without `correctAnswer`)* |
+| `/api/questions/:number` | `GET` | Retrieve single question details |
+| `/api/teams/status` | `GET` | Live team connectivity status and counts |
+| `/api/teams/login` | `POST` | Authenticate team credentials via HTTP REST |
+| `/api/quiz/current` | `GET` | Current quiz session status |
+| `/api/quiz/results` | `GET` | Historical tournament results |
+| `/api/quiz/sessions` | `GET` | Past quiz tournament sessions |
+| `/api/quiz/answers` | `GET` | Answer submissions audit trail |
+| `/api/db/status` | `GET` | MongoDB connection health check |
 
 ---
 

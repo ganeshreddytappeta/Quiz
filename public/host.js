@@ -33,6 +33,8 @@ const dom = {
   hostPhaseLabel: document.getElementById("hostPhaseLabel"),
   hostTeamsConnectedCount: document.getElementById("hostTeamsConnectedCount"),
   hostArenaTotalQuestions: document.getElementById("hostArenaTotalQuestions"),
+  hostDatabaseText: document.getElementById("hostDatabaseText"),
+  hostDatabaseDot: document.getElementById("hostDatabaseDot"),
   btnStartQuiz: document.getElementById("btnStartQuiz"),
   btnNextQuestion: document.getElementById("btnNextQuestion"),
   btnEndQuiz: document.getElementById("btnEndQuiz"),
@@ -515,6 +517,20 @@ function renderAll(state) {
 
   if (dom.hostArenaTotalQuestions) {
     dom.hostArenaTotalQuestions.textContent = `${state.totalQuestions} Questions`;
+  }
+
+  // Database indicator
+  if (dom.hostDatabaseText && dom.hostDatabaseDot) {
+    const isMongo = state.databaseStatus?.connected;
+    if (isMongo) {
+      dom.hostDatabaseText.textContent = "MongoDB Active";
+      dom.hostDatabaseDot.style.background = "#10b981";
+      dom.hostDatabaseText.style.color = "#34d399";
+    } else {
+      dom.hostDatabaseText.textContent = "Memory Fallback (Atlas Ready)";
+      dom.hostDatabaseDot.style.background = "#38bdf8";
+      dom.hostDatabaseText.style.color = "#7dd3fc";
+    }
   }
 
   // 2. Control Buttons State
