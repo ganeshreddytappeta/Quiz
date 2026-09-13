@@ -354,7 +354,12 @@ function setupTabs() {
 // Socket.IO Integration
 // ============================================================================
 function initSocket() {
-  socket = io();
+  socket = io({
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 25,
+    reconnectionDelay: 1000
+  });
 
   socket.on("connect", () => {
     console.log("Admin socket connected:", socket.id);

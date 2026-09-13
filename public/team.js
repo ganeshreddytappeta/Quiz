@@ -119,7 +119,12 @@ function formatSeconds(secs) {
 
 // Initialize Socket.IO connection
 function initSocket() {
-  socket = io();
+  socket = io({
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 25,
+    reconnectionDelay: 1000
+  });
 
   socket.on("connect", () => {
     console.log("Connected to QUIZ ARENA server via Socket.IO:", socket.id);
