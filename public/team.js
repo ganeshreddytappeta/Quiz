@@ -577,48 +577,15 @@ function startConfettiAnimation() {
 function initTeamApp() {
   initSocket();
 
-  // Load and render available teams helper
-  async function loadAvailableTeams() {
-    const chipsContainer = document.getElementById("teamsListChips");
-    if (!chipsContainer) return;
-    try {
-      const res = await fetch("/api/teams");
-      const data = await res.json();
-      if (data.teams && Array.isArray(data.teams)) {
+  // Pre-load active teams list silently for validation
+  fetch("/api/teams")
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.teams && Array.isArray(data.teams)) {
         activeTeamsList = data.teams;
-        chipsContainer.innerHTML = data.teams.map(t => `
-          <button type="button" class="team-quick-chip" data-team="${t.name}" data-code="${t.code}" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.35rem 0.6rem; font-size: 0.8rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; cursor: pointer; text-align: left; transition: background 0.15s;">
-            <span style="font-weight: 600;">${t.name}</span>
-            <span style="font-family: monospace; color: #818cf8; background: rgba(99,102,241,0.2); padding: 0.1rem 0.4rem; border-radius: 4px;">${t.code}</span>
-          </button>
-        `).join('');
-
-        chipsContainer.querySelectorAll(".team-quick-chip").forEach(btn => {
-          btn.addEventListener("click", () => {
-            const tName = btn.getAttribute("data-team");
-            const tCode = btn.getAttribute("data-code");
-            if (elements.teamNameInput) elements.teamNameInput.value = tName;
-            if (elements.teamCodeInput) {
-              elements.teamCodeInput.value = tCode;
-              elements.teamCodeInput.focus();
-            }
-          });
-        });
       }
-    } catch (e) {
-      console.warn("Could not fetch available teams helper:", e);
-    }
-  }
-
-  loadAvailableTeams();
-
-  const toggleTeamsBtn = document.getElementById("toggleAvailableTeamsBtn");
-  const teamsDropdown = document.getElementById("availableTeamsDropdown");
-  if (toggleTeamsBtn && teamsDropdown) {
-    toggleTeamsBtn.addEventListener("click", () => {
-      teamsDropdown.classList.toggle("hidden");
-    });
-  }
+    })
+    .catch(() => {});
 
   // Check URL parameters or sessionStorage for autofill
   const params = new URLSearchParams(window.location.search);
