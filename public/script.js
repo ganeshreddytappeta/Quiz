@@ -1,5 +1,13 @@
 // Landing page interactions
 document.addEventListener("DOMContentLoaded", () => {
-  // Landing page initialization
-  console.log("Quiz Arena loaded");
+  const quickForm = document.getElementById("quickJoinForm");
+  const quickInput = document.getElementById("quickCodeInput");
+
+  quickForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const code = (quickInput?.value || "").trim().toUpperCase();
+    if (code) {
+      window.location.href = `/team.html?code=${encodeURIComponent(code)}`;
+    }
+  });
 });

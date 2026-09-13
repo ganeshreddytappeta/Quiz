@@ -1,8 +1,8 @@
 // server.ts
 import express4 from "express";
 import http from "http";
-import path from "path";
-import fs from "fs";
+import path3 from "path";
+import fs3 from "fs";
 import { Server } from "socket.io";
 import mongoose9 from "mongoose";
 import dotenv from "dotenv";
@@ -331,19 +331,43 @@ var Result = mongoose5.models.Result || mongoose5.model("Result", resultSchema);
 // routes/teamRoutes.js
 import express from "express";
 import mongoose6 from "mongoose";
+import fs from "fs";
+import path from "path";
 var router = express.Router();
+var TEAMS_FILE = path.join(process.cwd(), "data", "teams.json");
 var DEFAULT_TEAMS_LIST = [
-  { teamName: "Team 1", teamCode: "T1A7" },
-  { teamName: "Team 2", teamCode: "T2B8" },
-  { teamName: "Team 3", teamCode: "T3C9" },
-  { teamName: "Team 4", teamCode: "T4D1" },
-  { teamName: "Team 5", teamCode: "T5E2" },
-  { teamName: "Team 6", teamCode: "T6F3" },
-  { teamName: "Team 7", teamCode: "T7G4" },
-  { teamName: "Team 8", teamCode: "T8H5" },
-  { teamName: "Team 9", teamCode: "T9I6" },
-  { teamName: "Team 10", teamCode: "T10J7" }
+  { id: "t1", name: "Team 1", code: "T1A7", teamName: "Team 1", teamCode: "T1A7" },
+  { id: "t2", name: "Team 2", code: "T2B8", teamName: "Team 2", teamCode: "T2B8" },
+  { id: "t3", name: "Team 3", code: "T3C9", teamName: "Team 3", teamCode: "T3C9" },
+  { id: "t4", name: "Team 4", code: "T4D1", teamName: "Team 4", teamCode: "T4D1" },
+  { id: "t5", name: "Team 5", code: "T5E2", teamName: "Team 5", teamCode: "T5E2" },
+  { id: "t6", name: "Team 6", code: "T6F3", teamName: "Team 6", teamCode: "T6F3" },
+  { id: "t7", name: "Team 7", code: "T7G4", teamName: "Team 7", teamCode: "T7G4" },
+  { id: "t8", name: "Team 8", code: "T8H5", teamName: "Team 8", teamCode: "T8H5" },
+  { id: "t9", name: "Team 9", code: "T9I6", teamName: "Team 9", teamCode: "T9I6" },
+  { id: "t10", name: "Team 10", code: "T10J7", teamName: "Team 10", teamCode: "T10J7" }
 ];
+function getActiveTeamsFallback() {
+  try {
+    if (fs.existsSync(TEAMS_FILE)) {
+      const content = fs.readFileSync(TEAMS_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((t, idx) => ({
+          id: t.id || `t${idx + 1}`,
+          name: t.name || t.teamName,
+          code: t.code || t.teamCode,
+          teamName: t.name || t.teamName,
+          teamCode: t.code || t.teamCode,
+          isConnected: false
+        }));
+      }
+    }
+  } catch (e) {
+    console.error("Error reading data/teams.json in teamRoutes:", e);
+  }
+  return DEFAULT_TEAMS_LIST;
+}
 router.get("/", async (req, res) => {
   try {
     if (mongoose6.connection.readyState === 1) {
@@ -361,17 +385,11 @@ router.get("/", async (req, res) => {
         }))
       });
     }
+    const fallbackTeams = getActiveTeamsFallback();
     return res.json({
       success: true,
-      source: "memory_fallback",
-      teams: DEFAULT_TEAMS_LIST.map((t, idx) => ({
-        id: `t${idx + 1}`,
-        name: t.teamName,
-        code: t.teamCode,
-        teamName: t.teamName,
-        teamCode: t.teamCode,
-        isConnected: false
-      }))
+      source: "file_sync",
+      teams: fallbackTeams
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -389,14 +407,15 @@ router.get("/status", async (req, res) => {
         teams
       });
     }
+    const fallbackTeams = getActiveTeamsFallback();
     return res.json({
       success: true,
-      source: "memory_fallback",
-      connectedCount: 0,
-      totalTeams: DEFAULT_TEAMS_LIST.length,
-      teams: DEFAULT_TEAMS_LIST.map((t) => ({
-        teamName: t.teamName,
-        isConnected: false,
+      source: "file_sync",
+      connectedCount: fallbackTeams.filter((t) => t.isConnected).length,
+      totalTeams: fallbackTeams.length,
+      teams: fallbackTeams.map((t) => ({
+        teamName: t.name,
+        isConnected: t.isConnected,
         totalScore: 0,
         totalResponseTime: 0
       }))
@@ -410,15 +429,14 @@ router.post("/login", async (req, res) => {
     const { teamName, teamCode } = req.body || {};
     const trimmedName = (teamName || "").trim();
     const trimmedCode = (teamCode || "").trim().toUpperCase();
-    if (!trimmedName || !trimmedCode) {
-      return res.status(400).json({ success: false, message: "Team name and code are required." });
+    if (!trimmedCode) {
+      return res.status(400).json({ success: false, message: "Team code is required." });
     }
     if (mongoose6.connection.readyState === 1) {
-      const team = await Team.findOne({
-        teamName: { $regex: new RegExp(`^${trimmedName}$`, "i") }
-      });
+      const query = trimmedName ? { teamName: { $regex: new RegExp(`^${trimmedName}$`, "i") } } : { teamCode: trimmedCode };
+      const team = await Team.findOne(query);
       if (!team) {
-        return res.status(401).json({ success: false, message: "Invalid team name." });
+        return res.status(401).json({ success: false, message: "Invalid team credentials." });
       }
       if (team.teamCode.toUpperCase() !== trimmedCode) {
         return res.status(401).json({ success: false, message: "Invalid team code." });
@@ -436,17 +454,22 @@ router.post("/login", async (req, res) => {
         }
       });
     }
-    const match = DEFAULT_TEAMS_LIST.find(
-      (t) => t.teamName.toLowerCase() === trimmedName.toLowerCase() && t.teamCode.toUpperCase() === trimmedCode
-    );
+    const activeTeams2 = getActiveTeamsFallback();
+    const match = activeTeams2.find((t) => {
+      const codeMatches = (t.code || t.teamCode || "").trim().toUpperCase() === trimmedCode;
+      if (!trimmedName) return codeMatches;
+      const nameMatches = (t.name || t.teamName || "").trim().toLowerCase() === trimmedName.toLowerCase();
+      return codeMatches && nameMatches;
+    }) || activeTeams2.find((t) => (t.code || t.teamCode || "").trim().toUpperCase() === trimmedCode);
     if (!match) {
       return res.status(401).json({ success: false, message: "Invalid team name or code." });
     }
     return res.json({
       success: true,
-      source: "memory_fallback",
+      source: "file_sync",
       team: {
-        teamName: match.teamName,
+        id: match.id,
+        teamName: match.name || match.teamName,
         totalScore: 0,
         totalResponseTime: 0
       }
@@ -460,7 +483,36 @@ var teamRoutes_default = router;
 // routes/questionRoutes.js
 import express2 from "express";
 import mongoose7 from "mongoose";
+import fs2 from "fs";
+import path2 from "path";
 var router2 = express2.Router();
+var QUESTIONS_FILE = path2.join(process.cwd(), "data", "questions.json");
+function getActiveQuestionsFallback() {
+  try {
+    if (fs2.existsSync(QUESTIONS_FILE)) {
+      const content = fs2.readFileSync(QUESTIONS_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((q, idx) => ({
+          questionNumber: q.id || idx + 1,
+          question: q.question,
+          options: q.options,
+          timeLimit: q.timeLimit || 30,
+          category: q.category || "General Knowledge"
+        }));
+      }
+    }
+  } catch (e) {
+    console.error("Error reading data/questions.json in questionRoutes:", e);
+  }
+  return (questions || []).map((q, idx) => ({
+    questionNumber: q.id || idx + 1,
+    question: q.question,
+    options: q.options,
+    timeLimit: 30,
+    category: "General Knowledge"
+  }));
+}
 router2.get("/", async (req, res) => {
   try {
     if (mongoose7.connection.readyState === 1) {
@@ -475,16 +527,10 @@ router2.get("/", async (req, res) => {
         questions: questions2
       });
     }
-    const fallback = (questions || []).map((q, idx) => ({
-      questionNumber: q.id || idx + 1,
-      question: q.question,
-      options: q.options,
-      timeLimit: 30,
-      category: "General Knowledge"
-    }));
+    const fallback = getActiveQuestionsFallback();
     return res.json({
       success: true,
-      source: "memory_fallback",
+      source: "file_sync",
       total: fallback.length,
       questions: fallback
     });
@@ -509,20 +555,15 @@ router2.get("/:questionNumber", async (req, res) => {
         question
       });
     }
-    const fallbackQ = (questions || []).find((q, idx) => (q.id || idx + 1) === qNum);
+    const fallbackQuestions = getActiveQuestionsFallback();
+    const fallbackQ = fallbackQuestions.find((q) => q.questionNumber === qNum);
     if (!fallbackQ) {
       return res.status(404).json({ success: false, message: `Question #${qNum} not found.` });
     }
     return res.json({
       success: true,
-      source: "memory_fallback",
-      question: {
-        questionNumber: qNum,
-        question: fallbackQ.question,
-        options: fallbackQ.options,
-        timeLimit: 30,
-        category: "General Knowledge"
-      }
+      source: "file_sync",
+      question: fallbackQ
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -542,6 +583,20 @@ router3.get("/current", async (req, res) => {
         success: true,
         source: "mongodb",
         quiz: currentQuiz || null
+      });
+    }
+    const state = req.app.locals.quizState;
+    if (state) {
+      return res.json({
+        success: true,
+        source: "memory_live",
+        quiz: {
+          quizName: "Quiz Arena",
+          status: state.state,
+          currentQuestion: state.currentQuestionIndex + 1,
+          totalQuestions: req.app.locals.activeQuestions ? req.app.locals.activeQuestions.length : 10,
+          timerSecondsLeft: req.app.locals.timerSecondsLeft || 0
+        }
       });
     }
     return res.json({
@@ -656,15 +711,15 @@ function isValidAdminPassword(pwd) {
   const trimmed = pwd.trim();
   return trimmed === ADMIN_PASSWORD || trimmed === "admin@123";
 }
-var DATA_DIR = path.join(process.cwd(), "data");
-var QUESTIONS_FILE = path.join(DATA_DIR, "questions.json");
+var DATA_DIR = path3.join(process.cwd(), "data");
+var QUESTIONS_FILE2 = path3.join(DATA_DIR, "questions.json");
 function loadQuestions() {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
-    if (fs.existsSync(QUESTIONS_FILE)) {
-      const content = fs.readFileSync(QUESTIONS_FILE, "utf-8");
+    if (fs3.existsSync(QUESTIONS_FILE2)) {
+      const content = fs3.readFileSync(QUESTIONS_FILE2, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
@@ -679,16 +734,16 @@ function loadQuestions() {
 }
 function saveQuestionsToFile(qs) {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(qs, null, 2), "utf-8");
+    fs3.writeFileSync(QUESTIONS_FILE2, JSON.stringify(qs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving data/questions.json:", err);
   }
 }
 var activeQuestions = loadQuestions();
-var TEAMS_FILE = path.join(process.cwd(), "data", "teams.json");
+var TEAMS_FILE2 = path3.join(process.cwd(), "data", "teams.json");
 var DEFAULT_TEAMS = [
   { id: "t1", name: "Team 1", code: "T1A7" },
   { id: "t2", name: "Team 2", code: "T2B8" },
@@ -703,8 +758,8 @@ var DEFAULT_TEAMS = [
 ];
 function loadTeams() {
   try {
-    if (fs.existsSync(TEAMS_FILE)) {
-      const content = fs.readFileSync(TEAMS_FILE, "utf-8");
+    if (fs3.existsSync(TEAMS_FILE2)) {
+      const content = fs3.readFileSync(TEAMS_FILE2, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
@@ -717,11 +772,11 @@ function loadTeams() {
 }
 function saveTeamsToFile(teams) {
   try {
-    const dir = path.dirname(TEAMS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const dir = path3.dirname(TEAMS_FILE2);
+    if (!fs3.existsSync(dir)) {
+      fs3.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(TEAMS_FILE, JSON.stringify(teams, null, 2), "utf-8");
+    fs3.writeFileSync(TEAMS_FILE2, JSON.stringify(teams, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving data/teams.json:", err);
   }
@@ -881,11 +936,16 @@ async function syncMongoData() {
 }
 connectToMongoDB();
 var activeTimer = null;
+var earlyTimeoutHandle = null;
 var timerSecondsLeft = 0;
 function clearCurrentTimer() {
   if (activeTimer) {
     clearInterval(activeTimer);
     activeTimer = null;
+  }
+  if (earlyTimeoutHandle) {
+    clearTimeout(earlyTimeoutHandle);
+    earlyTimeoutHandle = null;
   }
 }
 function calculateRankings() {
@@ -1081,15 +1141,18 @@ function checkAllAnswersSubmitted() {
   const allSubmitted = connectedTeams.every(
     (t) => t.currentAnswer !== null && t.currentAnswer !== void 0
   );
-  if (allSubmitted && quizState.state === "question") {
+  if (allSubmitted && quizState.state === "question" && !earlyTimeoutHandle) {
     clearCurrentTimer();
-    setTimeout(() => {
+    earlyTimeoutHandle = setTimeout(() => {
+      earlyTimeoutHandle = null;
       handleQuestionTimeout();
-    }, 1500);
+    }, 1200);
   }
 }
 async function handleQuestionTimeout() {
   clearCurrentTimer();
+  if (quizState.state !== "question") return;
+  quizState.state = "transition";
   const currentQ = activeQuestions[quizState.currentQuestionIndex];
   if (!currentQ) return;
   for (const team of Object.values(quizState.teams)) {
@@ -1228,7 +1291,20 @@ async function resetQuiz() {
 function findTeamByCredentials(inputName, inputCode) {
   const trimmedName = (inputName || "").trim();
   const trimmedCode = (inputCode || "").trim().toUpperCase();
-  if (!trimmedName || !trimmedCode) return null;
+  if (!trimmedCode) return null;
+  if (!trimmedName && trimmedCode) {
+    const normalizedInput2 = trimmedCode.replace(/\s+/g, "");
+    const codeMatch = activeTeams.find(
+      (t) => t.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput2
+    ) || DEFAULT_TEAMS.find(
+      (dt) => dt.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput2
+    );
+    if (codeMatch) {
+      const canonical = activeTeams.find((t) => t.id === codeMatch.id) || codeMatch;
+      return { team: canonical, canonicalName: canonical.name };
+    }
+    return null;
+  }
   let target = activeTeams.find(
     (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
   );
@@ -1631,6 +1707,10 @@ function formatDuration(seconds) {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 app.use(express4.json());
+app.locals.quizState = quizState;
+app.locals.activeQuestions = activeQuestions;
+app.locals.timerSecondsLeft = timerSecondsLeft;
+app.locals.calculateRankings = calculateRankings;
 app.use("/api/teams", teamRoutes_default);
 app.use("/api/questions", questionRoutes_default);
 app.use("/api/quiz", quizRoutes_default);
@@ -2277,20 +2357,20 @@ app.post("/api/team/login", (req, res) => {
 app.set("trust proxy", true);
 function findExistingFilePath(...relativeCandidates) {
   const baseDirectories = [
-    path.join(process.cwd(), "public"),
-    path.join(process.cwd(), "dist"),
+    path3.join(process.cwd(), "public"),
+    path3.join(process.cwd(), "dist"),
     process.cwd()
   ];
   if (typeof __dirname !== "undefined") {
-    baseDirectories.push(path.join(__dirname, "public"));
-    baseDirectories.push(path.join(__dirname, "..", "public"));
-    baseDirectories.push(path.join(__dirname, "..", "dist"));
+    baseDirectories.push(path3.join(__dirname, "public"));
+    baseDirectories.push(path3.join(__dirname, "..", "public"));
+    baseDirectories.push(path3.join(__dirname, "..", "dist"));
     baseDirectories.push(__dirname);
   }
   for (const rel of relativeCandidates) {
     for (const base of baseDirectories) {
-      const full = path.resolve(base, rel);
-      if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+      const full = path3.resolve(base, rel);
+      if (fs3.existsSync(full) && fs3.statSync(full).isFile()) {
         return full;
       }
     }
@@ -2302,28 +2382,28 @@ function sendStaticHtml(res, fallbackFilename, ...candidateNames) {
   if (resolved) {
     res.sendFile(resolved);
   } else {
-    res.sendFile(path.join(process.cwd(), "public", fallbackFilename));
+    res.sendFile(path3.join(process.cwd(), "public", fallbackFilename));
   }
 }
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+});
+app.get(["/landing", "/index.html"], (req, res) => {
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
 });
 app.get(["/team", "/team.html"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
-});
-app.get("/index.html", (req, res) => {
-  res.redirect("/");
 });
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
   sendStaticHtml(res, "host.html", "public/host.html", "dist/host.html");
 });
 var candidateStaticDirs = [
-  path.join(process.cwd(), "public"),
-  path.join(process.cwd(), "dist"),
+  path3.join(process.cwd(), "public"),
+  path3.join(process.cwd(), "dist"),
   process.cwd()
 ];
 for (const dir of candidateStaticDirs) {
-  if (fs.existsSync(dir)) {
+  if (fs3.existsSync(dir)) {
     app.use(express4.static(dir, { index: false }));
   }
 }
