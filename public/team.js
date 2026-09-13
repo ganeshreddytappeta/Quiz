@@ -336,6 +336,18 @@ let totalQuestionsCount = 10;
     showView("invalidLogin");
   });
 
+  socket.on("team-superseded", (data) => {
+    sessionStorage.removeItem("quiz_team_name");
+    sessionStorage.removeItem("quiz_session_token");
+    currentTeamName = null;
+    currentSessionToken = null;
+    if (elements.invalidErrorTitle) elements.invalidErrorTitle.textContent = "Session Transferred";
+    if (elements.invalidErrorMessage) {
+      elements.invalidErrorMessage.textContent = data.message || "Your team session was transferred to another window.";
+    }
+    showView("invalidLogin");
+  });
+
   socket.on("disconnect", () => {
     console.warn("Disconnected from server. Retrying...");
   });
@@ -608,6 +620,7 @@ function initTeamApp() {
     e.preventDefault();
     const name = (elements.teamNameInput?.value || "").trim();
     const rawCode = (elements.teamCodeInput?.value || "").trim();
+    const submitBtn = document.getElementById("loginSubmitBtn");
     const feedbackEl = document.getElementById("loginStatusFeedback");
 
     if (!name || !rawCode) return;
@@ -617,45 +630,82 @@ function initTeamApp() {
       feedbackEl.textContent = "";
     }
 
-    // Check if user entered admin credentials at team login
-    const isTeamAdmin = name.toLowerCase() === "admin";
-    const isPasswordAdmin = rawCode === "admin@123";
-
-    if (isTeamAdmin && isPasswordAdmin) {
-      try {
-        const adminRes = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: "admin", password: rawCode })
-        });
-        const adminData = await adminRes.json();
-        if (adminData.success && (adminData.token || adminData.adminToken)) {
-          localStorage.setItem("quiz_admin_token", adminData.token || adminData.adminToken);
-          window.location.href = "/admin.html";
-          return;
-        }
-      } catch (err) {
-        console.warn("Direct admin login attempt failed:", err);
-      }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Verifying & Joining...";
     }
 
-    if (socket && socket.connected) {
-      socket.emit("team-login", {
-        teamName: name,
-        teamCode: rawCode
+    try {
+      // 1. Direct fast HTTP authentication & session recovery
+      const res = await fetch("/api/team/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamName: name,
+          teamCode: rawCode,
+          socketId: socket?.id || null
+        })
       });
-    } else {
-      if (feedbackEl) {
-        feedbackEl.textContent = "Connecting to arena server... Please wait a moment and try again.";
-        feedbackEl.classList.remove("hidden");
+
+      const data = await res.json();
+
+      // Check if admin credentials were provided
+      if (data.isAdmin || data.redirectUrl) {
+        const token = data.token || data.adminToken;
+        if (token) {
+          localStorage.setItem("quiz_admin_token", token);
+        }
+        window.location.href = data.redirectUrl || "/admin.html";
+        return;
       }
-      if (!socket || !socket.connected) {
-        initSocket();
-        setTimeout(() => {
-          if (socket && socket.connected) {
-            socket.emit("team-login", { teamName: name, teamCode: rawCode });
-          }
-        }, 1200);
+
+      if (data.success) {
+        currentTeamName = data.teamName;
+        currentSessionToken = data.sessionToken;
+        sessionStorage.setItem("quiz_team_name", data.teamName);
+        sessionStorage.setItem("quiz_session_token", data.sessionToken);
+
+        if (elements.waitingTeamTitle) elements.waitingTeamTitle.textContent = data.teamName;
+        if (elements.questionTeamName) elements.questionTeamName.textContent = data.teamName;
+
+        // Ensure socket is connected and bound to team room
+        if (socket && socket.connected) {
+          socket.emit("team-reconnect", {
+            teamName: data.teamName,
+            sessionToken: data.sessionToken
+          });
+        } else {
+          initSocket();
+        }
+
+        handleServerState(data.stateData);
+      } else {
+        // SCREEN 3: INVALID LOGIN
+        if (elements.invalidErrorTitle) {
+          elements.invalidErrorTitle.textContent = "Invalid Code";
+        }
+        if (elements.invalidErrorMessage) {
+          elements.invalidErrorMessage.textContent = data.message || "The team name or code is incorrect. Please try again.";
+        }
+        showView("invalidLogin");
+      }
+    } catch (err) {
+      console.warn("HTTP login attempt failed, trying Socket.IO fallback:", err);
+      // Fallback via Socket.io
+      if (socket && socket.connected) {
+        socket.emit("team-login", {
+          teamName: name,
+          teamCode: rawCode
+        });
+      } else {
+        if (elements.invalidErrorTitle) elements.invalidErrorTitle.textContent = "Connection Error";
+        if (elements.invalidErrorMessage) elements.invalidErrorMessage.textContent = "Could not connect to the quiz server. Please try again.";
+        showView("invalidLogin");
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Login & Join Quiz";
       }
     }
   });
@@ -663,6 +713,11 @@ function initTeamApp() {
   // Try Again on Invalid Login
   elements.tryAgainBtn?.addEventListener("click", () => {
     showView("login");
+    const submitBtn = document.getElementById("loginSubmitBtn");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Login & Join Quiz";
+    }
     elements.teamCodeInput?.focus();
     elements.teamCodeInput?.select();
   });

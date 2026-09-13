@@ -535,6 +535,54 @@ function resetQuiz() {
   broadcastAll();
 }
 
+// Robust credential matcher supporting active team name, slot name, and default fallback codes
+function findTeamByCredentials(inputName: string, inputCode: string): { team: TeamConfig; canonicalName: string } | null {
+  const trimmedName = (inputName || "").trim();
+  const trimmedCode = (inputCode || "").trim().toUpperCase();
+  if (!trimmedName || !trimmedCode) return null;
+
+  // 1. Direct match by active team name
+  let target = activeTeams.find(
+    (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
+  );
+
+  // 2. Match by default slot name (e.g., "Team 1", "Team 2", "Team 3")
+  if (!target) {
+    const defaultMatch = DEFAULT_TEAMS.find(
+      (dt) => dt.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (defaultMatch) {
+      target = activeTeams.find((t) => t.id === defaultMatch.id);
+    }
+  }
+
+  // 3. Match by team ID (e.g., "t1", "t2", "T1")
+  if (!target) {
+    target = activeTeams.find((t) => t.id.toLowerCase() === trimmedName.toLowerCase());
+  }
+
+  if (!target) return null;
+
+  // Determine allowed passcodes: configured code OR default slot code
+  const defaultSlot = DEFAULT_TEAMS.find((dt) => dt.id === target?.id);
+  const validCodes = [target.code.trim().toUpperCase()];
+  if (defaultSlot) {
+    validCodes.push(defaultSlot.code.trim().toUpperCase());
+  }
+
+  const normalizedInput = trimmedCode.replace(/\s+/g, "");
+  const codeMatches = validCodes.some((vc) => {
+    return vc === trimmedCode || vc.replace(/\s+/g, "") === normalizedInput;
+  });
+
+  if (!codeMatches) return null;
+
+  return {
+    team: target,
+    canonicalName: target.name
+  };
+}
+
 // Socket.IO Handling
 io.on("connection", (socket: Socket) => {
   // 1. Admin Authentication & Connect
@@ -610,7 +658,6 @@ io.on("connection", (socket: Socket) => {
     const { teamName, teamCode } = data || {};
     const trimmedName = (teamName || "").trim();
     const rawCode = (teamCode || "").trim();
-    const trimmedCode = rawCode.toUpperCase();
 
     // Check if user entered admin credentials at team login (team name "admin" & password "admin@123")
     const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
@@ -633,11 +680,9 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    // Check credentials against active teams
-    const expectedTeam = activeTeams.find(
-      (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
-    );
-    if (!expectedTeam || expectedTeam.code.trim().toUpperCase() !== trimmedCode) {
+    // Check credentials using resilient matcher
+    const match = findTeamByCredentials(trimmedName, rawCode);
+    if (!match) {
       socket.emit("login-response", {
         success: false,
         errorType: "invalid_credentials",
@@ -646,11 +691,11 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    const canonicalName = expectedTeam.name;
+    const canonicalName = match.canonicalName;
     if (!quizState.teams[canonicalName]) {
       quizState.teams[canonicalName] = {
-        teamName: expectedTeam.name,
-        teamCode: expectedTeam.code,
+        teamName: canonicalName,
+        teamCode: match.team.code,
         socketId: null,
         connected: false,
         score: 0,
@@ -665,18 +710,20 @@ io.on("connection", (socket: Socket) => {
     }
     const team = quizState.teams[canonicalName];
 
-    // Check duplicate login: If active on another socket
+    // Transfer session if active on another socket (never lock out authorized team users!)
     if (team.connected && team.socketId && team.socketId !== socket.id) {
-      socket.emit("login-response", {
-        success: false,
-        errorType: "already_logged_in",
-        message: `${canonicalName} is already logged in on another device or tab.`
-      });
-      return;
+      const oldSocket = io.sockets.sockets.get(team.socketId);
+      if (oldSocket) {
+        oldSocket.emit("team-superseded", {
+          message: "You have logged in from another session. This session has been transferred."
+        });
+        oldSocket.leave("teams-room");
+        delete oldSocket.data.teamName;
+      }
     }
 
     // Successful login
-    const sessionToken = `tok_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const sessionToken = team.sessionToken || `tok_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     team.socketId = socket.id;
     team.connected = true;
     team.sessionToken = sessionToken;
@@ -694,7 +741,7 @@ io.on("connection", (socket: Socket) => {
 
     // Notify all
     io.emit("team-joined", {
-      teamName: trimmedName,
+      teamName: canonicalName,
       connectedCount: Object.values(quizState.teams).filter((t) => t.connected).length
     });
 
@@ -704,20 +751,29 @@ io.on("connection", (socket: Socket) => {
   // 3. Team Reconnect (e.g. on page reload)
   socket.on("team-reconnect", (data: { teamName: string; sessionToken: string }) => {
     const { teamName, sessionToken } = data || {};
-    const team = quizState.teams[teamName];
+    if (!teamName) {
+      socket.emit("reconnect-response", { success: false, message: "Team name required." });
+      return;
+    }
 
-    if (team && (team.sessionToken === sessionToken || !team.connected)) {
-      team.socketId = socket.id;
-      team.connected = true;
-      if (!team.sessionToken) team.sessionToken = sessionToken;
+    // Find team record (case-insensitive)
+    const teamRecord = quizState.teams[teamName] ||
+      Object.values(quizState.teams).find((t) => t.teamName.toLowerCase() === teamName.trim().toLowerCase());
+
+    if (teamRecord) {
+      const actualName = teamRecord.teamName;
+      teamRecord.socketId = socket.id;
+      teamRecord.connected = true;
+      if (!teamRecord.sessionToken) teamRecord.sessionToken = sessionToken;
 
       socket.join("teams-room");
-      socket.data.teamName = teamName;
+      socket.data.teamName = actualName;
 
       socket.emit("reconnect-response", {
         success: true,
-        teamName,
-        stateData: getTeamState(teamName)
+        teamName: actualName,
+        sessionToken: teamRecord.sessionToken,
+        stateData: getTeamState(actualName)
       });
 
       broadcastAll();
@@ -1457,6 +1513,92 @@ app.get("/api/teams", (req, res) => {
 // API: Current quiz status
 app.get("/api/quiz-status", (req, res) => {
   res.json(getHostState());
+});
+
+// API: Team HTTP Login (Instant, resilient login with automatic session transfer)
+app.post("/api/team/login", (req, res) => {
+  const { teamName, teamCode, socketId } = req.body || {};
+  const trimmedName = (teamName || "").trim();
+  const rawCode = (teamCode || "").trim();
+
+  // Check admin credentials
+  const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+  const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
+
+  if (isTeamAdmin && isPasswordAdmin) {
+    const adminToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    activeAdminTokens.add(adminToken);
+    return res.json({
+      success: true,
+      isAdmin: true,
+      token: adminToken,
+      adminToken,
+      redirectUrl: "/admin.html",
+      message: "Admin credentials authenticated. Redirecting to admin portal..."
+    });
+  }
+
+  const match = findTeamByCredentials(trimmedName, rawCode);
+  if (!match) {
+    return res.status(401).json({
+      success: false,
+      errorType: "invalid_credentials",
+      message: "The team name or code is incorrect. Please try again."
+    });
+  }
+
+  const canonicalName = match.canonicalName;
+  if (!quizState.teams[canonicalName]) {
+    quizState.teams[canonicalName] = {
+      teamName: canonicalName,
+      teamCode: match.team.code,
+      socketId: null,
+      connected: false,
+      score: 0,
+      totalTime: 0,
+      sessionToken: null,
+      currentAnswer: null,
+      currentAnswerTime: null,
+      currentResult: "waiting",
+      isFirstCorrect: false,
+      history: []
+    };
+  }
+
+  const team = quizState.teams[canonicalName];
+  const sessionToken = team.sessionToken || `tok_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  team.sessionToken = sessionToken;
+  team.connected = true;
+
+  if (socketId) {
+    const clientSocket = io.sockets.sockets.get(socketId);
+    if (clientSocket) {
+      if (team.socketId && team.socketId !== socketId) {
+        const oldSocket = io.sockets.sockets.get(team.socketId);
+        if (oldSocket) {
+          oldSocket.leave("teams-room");
+          delete oldSocket.data.teamName;
+        }
+      }
+      team.socketId = socketId;
+      clientSocket.join("teams-room");
+      clientSocket.data.teamName = canonicalName;
+    }
+  }
+
+  io.emit("team-joined", {
+    teamName: canonicalName,
+    connectedCount: Object.values(quizState.teams).filter((t) => t.connected).length
+  });
+  broadcastAll();
+
+  return res.json({
+    success: true,
+    teamName: canonicalName,
+    sessionToken,
+    quizState: quizState.state,
+    stateData: getTeamState(canonicalName)
+  });
 });
 
 // Enable reverse proxy support (Cloud Run / Nginx)
