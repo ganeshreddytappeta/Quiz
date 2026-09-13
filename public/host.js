@@ -840,6 +840,7 @@ async function loadQuestions() {
     const res = await fetch("/api/admin/questions", {
       headers: { "Authorization": `Bearer ${adminToken}` }
     });
+    if (!res.ok) return;
     const data = await res.json();
     if (data.success && Array.isArray(data.questions)) {
       questionsData = data.questions;
@@ -1103,12 +1104,21 @@ window.moveQuestion = async function(id, direction) {
       },
       body: JSON.stringify({ ids })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Reorder failed:", errText);
+      showToast("Failed to reorder questions.", "error");
+      return;
+    }
     const data = await res.json();
     if (data.success) {
       loadQuestions();
+    } else {
+      showToast(data.message || "Could not reorder questions.", "error");
     }
   } catch (err) {
     console.error("Reorder failed:", err);
+    showToast("Network error while reordering questions.", "error");
   }
 };
 
@@ -1143,10 +1153,12 @@ dom.btnResetDefaultQuestions?.addEventListener("click", () => {
 // TEAMS MANAGEMENT TAB
 // ============================================================================
 async function loadTeams() {
+  if (!adminToken) return;
   try {
     const res = await fetch("/api/admin/teams", {
       headers: { "Authorization": `Bearer ${adminToken}` }
     });
+    if (!res.ok) return;
     const data = await res.json();
     if (data.teams && Array.isArray(data.teams)) {
       teamsData = data.teams;

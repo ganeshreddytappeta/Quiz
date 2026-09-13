@@ -1333,6 +1333,11 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   });
 }
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
 // API: Admin Login
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body || {};
@@ -1506,6 +1511,477 @@ app.post("/api/admin/questions", requireAdminAuth, async (req, res) => {
     message: "Question added successfully.",
     question: newQuestion,
     totalQuestions: activeQuestions.length
+  });
+});
+
+// API: Reorder questions
+app.post("/api/admin/questions/reorder", requireAdminAuth, async (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ success: false, message: "Array of question IDs is required." });
+  }
+
+  const idMap = new Map(activeQuestions.map(q => [q.id, q]));
+  const reordered: QuestionItem[] = [];
+  for (const rawId of ids) {
+    const numId = Number(rawId);
+    const q = idMap.get(numId);
+    if (q) reordered.push(q);
+  }
+  for (const q of activeQuestions) {
+    if (!ids.map(Number).includes(q.id)) {
+      reordered.push(q);
+    }
+  }
+
+  // Sequentially renumber questions 1..N
+  reordered.forEach((q, idx) => {
+    q.id = idx + 1;
+  });
+
+  activeQuestions = reordered;
+  saveQuestionsToFile(activeQuestions);
+
+  if (isMongoConnected) {
+    try {
+      await Question.deleteMany({});
+      await Question.insertMany(
+        activeQuestions.map((q) => ({
+          questionNumber: q.id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          category: q.category || "General Knowledge",
+          timeLimit: q.timeLimit || 30
+        }))
+      );
+    } catch (e: any) {
+      console.error("Error updating MongoDB after reorder:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  io.to("host-room").emit("questions-updated", {
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+
+  res.json({
+    success: true,
+    message: "Questions reordered successfully.",
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+});
+
+// API: Edit existing question
+app.put("/api/admin/questions/:id", requireAdminAuth, async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  const qIndex = activeQuestions.findIndex(q => q.id === targetId);
+  if (qIndex === -1) {
+    return res.status(404).json({ success: false, message: `Question #${targetId} not found.` });
+  }
+
+  const { question, options, correctAnswer } = req.body || {};
+  if (!question || typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ success: false, message: "Question text is required." });
+  }
+
+  if (
+    !options ||
+    !options.A || !options.B || !options.C || !options.D ||
+    !options.A.trim() || !options.B.trim() || !options.C.trim() || !options.D.trim()
+  ) {
+    return res.status(400).json({ success: false, message: "All 4 options (A, B, C, D) must have non-empty text." });
+  }
+
+  const validAns = (correctAnswer || "").toUpperCase();
+  if (!["A", "B", "C", "D"].includes(validAns)) {
+    return res.status(400).json({ success: false, message: "Correct answer must be one of: A, B, C, or D." });
+  }
+
+  activeQuestions[qIndex] = {
+    ...activeQuestions[qIndex],
+    question: question.trim(),
+    options: {
+      A: options.A.trim(),
+      B: options.B.trim(),
+      C: options.C.trim(),
+      D: options.D.trim()
+    },
+    correctAnswer: validAns as "A" | "B" | "C" | "D"
+  };
+
+  saveQuestionsToFile(activeQuestions);
+
+  if (isMongoConnected) {
+    try {
+      await Question.findOneAndUpdate(
+        { questionNumber: targetId },
+        {
+          question: activeQuestions[qIndex].question,
+          options: activeQuestions[qIndex].options,
+          correctAnswer: activeQuestions[qIndex].correctAnswer
+        }
+      );
+    } catch (e: any) {
+      console.error("Error updating question in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  io.to("host-room").emit("questions-updated", {
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+
+  res.json({
+    success: true,
+    message: "Question updated successfully.",
+    question: activeQuestions[qIndex]
+  });
+});
+
+// API: Delete question
+app.delete("/api/admin/questions/:id", requireAdminAuth, async (req, res) => {
+  if (activeQuestions.length <= 1) {
+    return res.status(400).json({
+      success: false,
+      message: "The quiz must have at least 1 question. Cannot delete the only question."
+    });
+  }
+
+  const targetId = parseInt(req.params.id, 10);
+  const exists = activeQuestions.some(q => q.id === targetId);
+  if (!exists) {
+    return res.status(404).json({ success: false, message: `Question #${targetId} not found.` });
+  }
+
+  activeQuestions = activeQuestions.filter(q => q.id !== targetId);
+  // Renumber remaining questions sequentially
+  activeQuestions.forEach((q, idx) => {
+    q.id = idx + 1;
+  });
+
+  saveQuestionsToFile(activeQuestions);
+
+  if (isMongoConnected) {
+    try {
+      await Question.deleteMany({});
+      await Question.insertMany(
+        activeQuestions.map((q) => ({
+          questionNumber: q.id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          category: q.category || "General Knowledge",
+          timeLimit: q.timeLimit || 30
+        }))
+      );
+    } catch (e: any) {
+      console.error("Error deleting question in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  io.to("host-room").emit("questions-updated", {
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+
+  res.json({
+    success: true,
+    message: "Question deleted successfully.",
+    totalQuestions: activeQuestions.length
+  });
+});
+
+// API: Reset questions to defaults
+app.post("/api/admin/questions/reset", requireAdminAuth, async (req, res) => {
+  activeQuestions = (defaultQuestions as QuestionItem[]).map((q, idx) => ({
+    id: idx + 1,
+    question: q.question,
+    options: { ...q.options },
+    correctAnswer: q.correctAnswer,
+    category: q.category || "General Knowledge",
+    timeLimit: q.timeLimit || 30
+  }));
+
+  saveQuestionsToFile(activeQuestions);
+
+  if (isMongoConnected) {
+    try {
+      await Question.deleteMany({});
+      await Question.insertMany(
+        activeQuestions.map((q) => ({
+          questionNumber: q.id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          category: q.category || "General Knowledge",
+          timeLimit: q.timeLimit || 30
+        }))
+      );
+    } catch (e: any) {
+      console.error("Error resetting questions in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  io.to("host-room").emit("questions-updated", {
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+
+  res.json({
+    success: true,
+    message: "Questions restored to default set.",
+    questions: activeQuestions,
+    totalQuestions: activeQuestions.length
+  });
+});
+
+// API: Admin Teams Management
+app.get("/api/admin/teams", requireAdminAuth, (req, res) => {
+  res.json({
+    success: true,
+    total: activeTeams.length,
+    teams: activeTeams
+  });
+});
+
+app.post("/api/admin/teams", requireAdminAuth, async (req, res) => {
+  const { name, code } = req.body || {};
+  const trimmedName = (name || "").trim();
+  const trimmedCode = (code || "").trim().toUpperCase();
+
+  if (!trimmedName || !trimmedCode) {
+    return res.status(400).json({ success: false, message: "Team name and code are required." });
+  }
+
+  const dupName = activeTeams.find(t => t.name.toLowerCase() === trimmedName.toLowerCase());
+  if (dupName) {
+    return res.status(400).json({ success: false, message: `A team named "${trimmedName}" already exists.` });
+  }
+
+  const dupCode = activeTeams.find(t => t.code.toUpperCase() === trimmedCode);
+  if (dupCode) {
+    return res.status(400).json({ success: false, message: `Access code "${trimmedCode}" is already used by "${dupCode.name}".` });
+  }
+
+  const newId = `t_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const newTeam: TeamConfig = { id: newId, name: trimmedName, code: trimmedCode };
+  activeTeams.push(newTeam);
+  saveTeamsToFile(activeTeams);
+
+  quizState.teams[trimmedName] = {
+    teamName: trimmedName,
+    teamCode: trimmedCode,
+    socketId: null,
+    connected: false,
+    score: 0,
+    totalTime: 0,
+    sessionToken: null,
+    currentAnswer: null,
+    currentAnswerTime: null,
+    currentResult: "waiting",
+    isFirstCorrect: false,
+    history: []
+  };
+
+  if (isMongoConnected) {
+    try {
+      await Team.create({
+        teamName: trimmedName,
+        teamCode: trimmedCode,
+        isConnected: false
+      });
+    } catch (e: any) {
+      console.error("Error creating team in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  res.json({
+    success: true,
+    message: `Team "${trimmedName}" created successfully.`,
+    team: newTeam,
+    teams: activeTeams
+  });
+});
+
+app.put("/api/admin/teams/:id", requireAdminAuth, async (req, res) => {
+  const team = activeTeams.find(t => t.id === req.params.id);
+  if (!team) {
+    return res.status(404).json({ success: false, message: "Team not found." });
+  }
+
+  const { name, code } = req.body || {};
+  const oldName = team.name;
+  const newName = (name || "").trim();
+  const newCode = (code || "").trim().toUpperCase();
+
+  if (!newName || !newCode) {
+    return res.status(400).json({ success: false, message: "Team name and code are required." });
+  }
+
+  const dupName = activeTeams.find(t => t.id !== team.id && t.name.toLowerCase() === newName.toLowerCase());
+  if (dupName) {
+    return res.status(400).json({ success: false, message: `A team named "${newName}" already exists.` });
+  }
+
+  const dupCode = activeTeams.find(t => t.id !== team.id && t.code.toUpperCase() === newCode);
+  if (dupCode) {
+    return res.status(400).json({ success: false, message: `Access code "${newCode}" is already in use.` });
+  }
+
+  team.name = newName;
+  team.code = newCode;
+  saveTeamsToFile(activeTeams);
+
+  if (oldName !== newName && quizState.teams[oldName]) {
+    quizState.teams[newName] = {
+      ...quizState.teams[oldName],
+      teamName: newName,
+      teamCode: newCode
+    };
+    delete quizState.teams[oldName];
+  } else if (quizState.teams[newName]) {
+    quizState.teams[newName].teamCode = newCode;
+  }
+
+  if (isMongoConnected) {
+    try {
+      await Team.findOneAndUpdate({ teamName: oldName }, { teamName: newName, teamCode: newCode });
+    } catch (e: any) {
+      console.error("Error updating team in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  res.json({
+    success: true,
+    message: `Team "${newName}" updated successfully.`,
+    team,
+    teams: activeTeams
+  });
+});
+
+app.delete("/api/admin/teams/:id", requireAdminAuth, async (req, res) => {
+  if (activeTeams.length <= 2) {
+    return res.status(400).json({
+      success: false,
+      message: "The quiz tournament requires at least 2 teams."
+    });
+  }
+
+  const teamIndex = activeTeams.findIndex(t => t.id === req.params.id);
+  if (teamIndex === -1) {
+    return res.status(404).json({ success: false, message: "Team not found." });
+  }
+
+  const teamName = activeTeams[teamIndex].name;
+  const existingTeam = quizState.teams[teamName];
+  if (existingTeam && existingTeam.socketId) {
+    const sock = io.sockets.sockets.get(existingTeam.socketId);
+    if (sock) {
+      sock.emit("team-removed", { message: "This team has been removed by the host." });
+      sock.leave("teams-room");
+      delete sock.data.teamName;
+    }
+  }
+  delete quizState.teams[teamName];
+
+  activeTeams.splice(teamIndex, 1);
+  saveTeamsToFile(activeTeams);
+
+  if (isMongoConnected) {
+    try {
+      await Team.deleteOne({ teamName });
+    } catch (e: any) {
+      console.error("Error deleting team from MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  res.json({
+    success: true,
+    message: `Team "${teamName}" was removed.`,
+    teams: activeTeams
+  });
+});
+
+app.post("/api/admin/reset-team-session", requireAdminAuth, async (req, res) => {
+  const { teamName } = req.body || {};
+  if (!teamName) {
+    return res.status(400).json({ success: false, message: "Team name is required." });
+  }
+
+  const team = quizState.teams[teamName];
+  if (team) {
+    if (team.socketId) {
+      const sock = io.sockets.sockets.get(team.socketId);
+      if (sock) {
+        sock.emit("session-reset", { message: "Your session was reset by the host. Please log in again." });
+        sock.leave("teams-room");
+        delete sock.data.teamName;
+      }
+    }
+    team.socketId = null;
+    team.connected = false;
+    team.sessionToken = null;
+  }
+
+  if (isMongoConnected) {
+    await Team.findOneAndUpdate(
+      { teamName },
+      { isConnected: false, socketId: null }
+    ).catch(() => {});
+  }
+
+  broadcastAll();
+  res.json({ success: true, message: `Session reset for team "${teamName}".` });
+});
+
+app.post("/api/admin/teams/reset", requireAdminAuth, async (req, res) => {
+  activeTeams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
+  saveTeamsToFile(activeTeams);
+
+  // Disconnect active team sockets
+  Object.values(quizState.teams).forEach((t) => {
+    if (t.socketId) {
+      const sock = io.sockets.sockets.get(t.socketId);
+      if (sock) {
+        sock.emit("session-reset", { message: "Teams reset by administrator." });
+        sock.leave("teams-room");
+        delete sock.data.teamName;
+      }
+    }
+  });
+
+  quizState.teams = {};
+  initTeams();
+
+  if (isMongoConnected) {
+    try {
+      await Team.deleteMany({});
+      for (const t of DEFAULT_TEAMS) {
+        await Team.create({
+          teamName: t.name,
+          teamCode: t.code,
+          isConnected: false
+        });
+      }
+    } catch (e: any) {
+      console.error("Error resetting teams in MongoDB:", e?.message);
+    }
+  }
+
+  broadcastAll();
+  res.json({
+    success: true,
+    message: "Teams restored to default 10 teams and codes.",
+    teams: activeTeams
   });
 });
 

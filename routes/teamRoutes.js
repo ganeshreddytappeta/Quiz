@@ -17,6 +17,42 @@ const DEFAULT_TEAMS_LIST = [
   { teamName: "Team 10", teamCode: "T10J7" }
 ];
 
+// GET /api/teams - Public team list
+router.get("/", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const teams = await Team.find({}, { teamName: 1, teamCode: 1, isConnected: 1, totalScore: 1, totalResponseTime: 1, _id: 1 });
+      return res.json({
+        success: true,
+        source: "mongodb",
+        teams: teams.map(t => ({
+          id: t._id.toString(),
+          name: t.teamName,
+          code: t.teamCode,
+          teamName: t.teamName,
+          teamCode: t.teamCode,
+          isConnected: t.isConnected
+        }))
+      });
+    }
+
+    return res.json({
+      success: true,
+      source: "memory_fallback",
+      teams: DEFAULT_TEAMS_LIST.map((t, idx) => ({
+        id: `t${idx + 1}`,
+        name: t.teamName,
+        code: t.teamCode,
+        teamName: t.teamName,
+        teamCode: t.teamCode,
+        isConnected: false
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/teams/status - Public team connection status
 router.get("/status", async (req, res) => {
   try {

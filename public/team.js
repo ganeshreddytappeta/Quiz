@@ -19,6 +19,7 @@ let currentTeamName = null;
 let currentSessionToken = null;
 let currentQuestionData = null;
 let hasSubmittedCurrentQuestion = false;
+let totalQuestionsCount = 10;
 
 // DOM Elements
 const views = {
@@ -282,6 +283,9 @@ function initSocket() {
     if (elements.transitionHeading) {
       elements.transitionHeading.textContent = data.isFinal ? "Final Results in" : "Next Question in";
     }
+    if (data && data.totalQuestions) {
+      totalQuestionsCount = data.totalQuestions;
+    }
     if (elements.transitionSubtext) {
       elements.transitionSubtext.textContent = data.isFinal ? "Calculating champion..." : `Get ready for Question ${data.nextQuestionNumber} of ${data.totalQuestions}!`;
     }
@@ -289,15 +293,13 @@ function initSocket() {
     if (elements.transitionProgress) elements.transitionProgress.style.width = "100%";
   });
 
-let totalQuestionsCount = 10;
-
   // Quiz Finished
   socket.on("quiz-finished", (data) => {
     if (data && data.totalQuestions) {
       totalQuestionsCount = data.totalQuestions;
     }
     showView("finalScoreboard");
-    renderFinalScoreboard(data.scoreboard, data.winner);
+    renderFinalScoreboard(data.scoreboard, data.winner, data.totalQuestions);
     startConfettiAnimation();
   });
 
@@ -397,8 +399,11 @@ function handleServerState(stateData) {
   } else if (state === "transition") {
     showView("transition");
   } else if (state === "finished") {
+    if (stateData.totalQuestions) {
+      totalQuestionsCount = stateData.totalQuestions;
+    }
     showView("finalScoreboard");
-    renderFinalScoreboard(stateData.rankings, stateData.rankings[0]);
+    renderFinalScoreboard(stateData.rankings, stateData.rankings ? stateData.rankings[0] : null, stateData.totalQuestions);
   }
 }
 
@@ -468,7 +473,9 @@ function submitAnswer(optionLetter) {
 }
 
 // Render final scoreboard on team screen
-function renderFinalScoreboard(scoreboard = [], winner = null) {
+function renderFinalScoreboard(scoreboard = [], winner = null, totalCount = null) {
+  const maxQuestions = totalCount || totalQuestionsCount || 10;
+
   if (elements.winnerTeamName) {
     elements.winnerTeamName.textContent = winner ? winner.teamName : "Champion Team";
   }
@@ -516,7 +523,7 @@ function renderFinalScoreboard(scoreboard = [], winner = null) {
             ${t.teamName} ${isCurrentTeam ? '⭐ <span style="font-size: 0.8rem; color: #a5b4fc;">(You)</span>' : ''}
           </td>
           <td style="font-weight: 700; color: #34d399;">
-            ${t.score} / ${totalQuestionsCount || 10}
+            ${t.score} / ${maxQuestions}
           </td>
           <td style="font-family: monospace; color: #cbd5e1;">
             ${t.totalTime}s
