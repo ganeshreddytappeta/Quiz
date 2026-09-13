@@ -339,10 +339,11 @@ function handleServerState(stateData) {
     showView("waitingRoom");
   } else if (state === "instructions") {
     showView("instructions");
-  } else if (state === "question") {
+  } else if (state === "running" || state === "question") {
     if (stateData.currentQuestion) {
       currentQuestionData = {
-        questionNumber: stateData.currentQuestionIndex + 1,
+        questionIndex: stateData.currentQuestionIndex,
+        questionNumber: stateData.currentQuestionNumber || (stateData.currentQuestionIndex + 1),
         totalQuestions: stateData.totalQuestions,
         question: stateData.currentQuestion.question,
         options: stateData.currentQuestion.options
@@ -361,6 +362,11 @@ function handleServerState(stateData) {
           const optText = currentQuestionData.options[stateData.currentAnswer] || "";
           elements.submittedOptionLabel.textContent = `${stateData.currentAnswer}. ${optText}`;
         }
+      } else {
+        hasSubmittedCurrentQuestion = false;
+        if (elements.submissionFeedbackCard) {
+          elements.submissionFeedbackCard.classList.add("hidden");
+        }
       }
     }
   } else if (state === "transition") {
@@ -376,12 +382,15 @@ function handleServerState(stateData) {
 
 // Populate Question View
 function showQuestionScreen(data) {
+  if (!data) return;
   showView("question");
+  hasSubmittedCurrentQuestion = false;
+
   if (elements.questionNumberMeta) {
     elements.questionNumberMeta.textContent = `Question ${data.questionNumber} of ${data.totalQuestions}`;
   }
   if (elements.questionText) {
-    elements.questionText.textContent = data.question;
+    elements.questionText.textContent = data.question || "";
   }
 
   // Options
@@ -393,7 +402,7 @@ function showQuestionScreen(data) {
     }
     if (btnEl) {
       btnEl.disabled = false;
-      btnEl.classList.remove("selected");
+      btnEl.classList.remove("selected", "is-correct", "is-wrong", "dimmed");
       btnEl.style.background = "";
       btnEl.style.borderColor = "";
       btnEl.style.boxShadow = "";

@@ -133,16 +133,22 @@
           </div>
         </div>
 
-        <!-- Host Action Controls (Start, Next Question, Reset, End) -->
+        <!-- Host Action Controls (Start, Reveal Answer, Next Question, Finish Quiz, Reset) -->
         <div class="host-controls">
-          <button class="btn-primary host-btn-sm" id="btnStartQuiz" title="Start tournament and launch questions">
+          <button class="btn-primary host-btn-sm" id="btnStartQuiz" title="Start tournament and launch Question 1">
             🚀 Start Quiz
           </button>
-          <button class="btn-secondary host-btn-sm" id="btnNextQuestion" disabled title="Advance immediately to the next question">
+          <button class="btn-secondary host-btn-sm" id="btnRevealAnswer" disabled title="Reveal correct answer to teams without advancing">
+            👁️ Reveal Answer
+          </button>
+          <button class="btn-primary host-btn-sm" id="btnNextQuestion" disabled title="Advance immediately to the next question">
             ⏭️ Next Question
           </button>
-          <button class="btn-secondary host-btn-sm" id="btnEndQuiz" title="Finish quiz and reveal final winner podium">
-            🏁 End Quiz
+          <button class="btn-secondary host-btn-sm hidden" id="btnFinishQuiz" title="Finish quiz and reveal final winner podium">
+            🏁 Finish Quiz
+          </button>
+          <button class="btn-secondary host-btn-sm" id="btnEndQuiz" title="End quiz and reveal results">
+            🛑 End Quiz
           </button>
           <button class="btn-danger host-btn-sm" id="btnResetQuiz" title="Reset scores and return arena to lobby">
             🔄 Reset Quiz
@@ -187,15 +193,21 @@
             <div class="card-glass host-question-card" id="hostQuestionCard">
               <div class="host-question-header">
                 <div class="question-meta" id="hostQuestionNumberMeta" style="font-size: 0.95rem; margin-bottom: 0;">
-                  Question 1 of 10
+                  Waiting in Lobby
                 </div>
-                <div class="host-timer-box" id="hostTimerDisplay">
-                  ⏱️ 30s
+                <!-- Answered progress counter -->
+                <div class="host-timer-box" id="hostAnsweredCounterBox" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.35); color: #60a5fa; font-weight: 700; font-size: 0.95rem; padding: 0.4rem 0.9rem; border-radius: 8px;">
+                  📥 Responses: <span id="hostAnsweredRatio">0 / 0</span>
                 </div>
               </div>
 
+              <!-- Status Alert for All Teams Answered -->
+              <div id="allTeamsAnsweredBanner" class="hidden" style="margin-bottom: 1rem; padding: 0.65rem 1rem; border-radius: 8px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+                <span>✨ All participating teams have submitted their answers! Click <strong>"Next Question"</strong> to advance whenever you are ready.</span>
+              </div>
+
               <h2 class="question-text" id="hostQuestionText" style="font-size: 1.45rem; margin-bottom: 1.25rem;">
-                Quiz has not started yet. Click "Start Quiz" above to begin with instructions!
+                Quiz has not started yet. Click "Start Quiz" above to begin!
               </h2>
 
               <!-- Options Preview -->
@@ -225,8 +237,8 @@
                 <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
                   <span>📊</span> Live Team Responses & Rankings
                 </h3>
-                <span style="font-size: 0.8rem; color: #94a3b8;">
-                  Live updates via Socket.IO
+                <span id="hostLiveAnswerSummary" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">
+                  Admin controlled navigation
                 </span>
               </div>
 
@@ -236,11 +248,11 @@
                     <tr>
                       <th style="width: 60px;">Rank</th>
                       <th>Team Name</th>
-                      <th style="width: 90px; text-align: center;">Answer</th>
-                      <th style="width: 100px;">Time (s)</th>
-                      <th style="width: 110px;">Round Result</th>
-                      <th style="width: 90px; text-align: center;">Score</th>
-                      <th style="width: 120px;">Status</th>
+                      <th style="width: 130px; text-align: center;">Round Status</th>
+                      <th style="width: 100px; text-align: center;">Choice</th>
+                      <th style="width: 120px; text-align: center;">Round Result</th>
+                      <th style="width: 90px; text-align: center;">Total Score</th>
+                      <th style="width: 110px;">Connection</th>
                     </tr>
                   </thead>
                   <tbody id="hostLiveTableBody">
@@ -265,12 +277,17 @@
               </div>
             </div>
 
-            <!-- First Answer Highlight Widget -->
-            <div class="side-widget first-answer-widget" id="firstAnswerWidget">
-              <div class="side-widget-title" style="color: #fbbf24;">First Correct Answer</div>
-              <div class="first-icon-bolt">⚡</div>
-              <div class="first-team-name" id="hostFirstTeamName">Waiting...</div>
-              <div class="first-team-time" id="hostFirstTeamTime">--:--</div>
+            <!-- Round Submissions Progress Widget -->
+            <div class="side-widget" id="progressStatusWidget" style="text-align: left;">
+              <div class="side-widget-title" style="color: #60a5fa; text-align: center;">Round Navigation</div>
+              <div style="font-size: 0.9rem; color: #fff; margin-bottom: 0.5rem; text-align: center;">
+                Status: <strong id="hostStatusSubtext" style="color: #38bdf8;">Waiting in Lobby</strong>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5;">
+                • Question changes <strong>ONLY</strong> when Admin clicks "Next Question".<br>
+                • There are <strong>no timers</strong> or auto transitions.<br>
+                • Teams can answer at their own pace until you advance.
+              </div>
             </div>
 
             <!-- Answer Distribution Widget -->
@@ -298,10 +315,10 @@
 
             <!-- Quick Info Card -->
             <div class="side-widget" style="text-align: left; font-size: 0.85rem; color: var(--text-dim);">
-              <div class="side-widget-title" style="text-align: center;">Tournament Rules</div>
+              <div class="side-widget-title" style="text-align: center;">Tournament Scoring</div>
               <p style="margin-bottom: 0.5rem;">• Correct answer: <strong>+1 point</strong></p>
               <p style="margin-bottom: 0.5rem;">• Wrong / No answer: <strong>0 points</strong></p>
-              <p>• Tie-breaker: <strong>Fastest total response time</strong></p>
+              <p>• Navigation: <strong>100% Admin Controlled</strong></p>
             </div>
 
           </div>

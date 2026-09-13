@@ -433,6 +433,8 @@ function initSocket() {
   socket.on("question-start", (data) => {
     updateQuestionDisplay(data);
     resetSidePanel(data);
+    if (dom.btnNextQuestion) dom.btnNextQuestion.disabled = false;
+    if (dom.btnRevealAnswer) dom.btnRevealAnswer.disabled = false;
   });
 
   socket.on("timer-tick", (data) => {
@@ -1671,14 +1673,13 @@ function initHostApp() {
   setupTabs();
   checkAuthOnStartup();
 
-  // Host Game Controls Listeners (WebSocket + REST Fallback)
+  // Host Game Controls Listeners (WebSocket with REST Fallback - Never double fire)
   dom.btnStartQuiz?.addEventListener("click", async () => {
     if (dom.btnStartQuiz.disabled) return;
     dom.btnStartQuiz.disabled = true;
     if (socket && socket.connected) {
-      socket.emit("quiz-start");
-    }
-    if (adminToken) {
+      socket.emit("quiz-start", { token: adminToken });
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/start", {
           method: "POST",
@@ -1688,15 +1689,14 @@ function initHostApp() {
         console.warn("Quiz start API trigger:", e);
       }
     }
-    showToast("Quiz started! Arena is launching...", "info");
+    showToast("Quiz started! Question 1 launched.", "info");
   });
 
   dom.btnRevealAnswer?.addEventListener("click", async () => {
     if (dom.btnRevealAnswer.disabled) return;
     if (socket && socket.connected) {
-      socket.emit("admin-reveal-answer");
-    }
-    if (adminToken) {
+      socket.emit("admin-reveal-answer", { token: adminToken });
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/reveal", {
           method: "POST",
@@ -1710,10 +1710,13 @@ function initHostApp() {
 
   dom.btnNextQuestion?.addEventListener("click", async () => {
     if (dom.btnNextQuestion.disabled) return;
+    // Disable immediately to prevent duplicate triggers
+    dom.btnNextQuestion.disabled = true;
+    if (dom.btnRevealAnswer) dom.btnRevealAnswer.disabled = true;
+
     if (socket && socket.connected) {
-      socket.emit("next-question");
-    }
-    if (adminToken) {
+      socket.emit("next-question", { token: adminToken });
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/next", {
           method: "POST",
@@ -1727,10 +1730,10 @@ function initHostApp() {
 
   dom.btnFinishQuiz?.addEventListener("click", async () => {
     if (dom.btnFinishQuiz.disabled) return;
+    dom.btnFinishQuiz.disabled = true;
     if (socket && socket.connected) {
-      socket.emit("admin-finish-quiz");
-    }
-    if (adminToken) {
+      socket.emit("admin-finish-quiz", { token: adminToken });
+    } else if (adminToken) {
       try {
         await fetch("/api/admin/quiz/finish", {
           method: "POST",
@@ -1750,9 +1753,8 @@ function initHostApp() {
       isDanger: true,
       onConfirm: async () => {
         if (socket && socket.connected) {
-          socket.emit("end-quiz");
-        }
-        if (adminToken) {
+          socket.emit("end-quiz", { token: adminToken });
+        } else if (adminToken) {
           try {
             await fetch("/api/admin/quiz/end", {
               method: "POST",
@@ -1774,9 +1776,8 @@ function initHostApp() {
       isDanger: true,
       onConfirm: async () => {
         if (socket && socket.connected) {
-          socket.emit("reset-quiz");
-        }
-        if (adminToken) {
+          socket.emit("reset-quiz", { token: adminToken });
+        } else if (adminToken) {
           try {
             await fetch("/api/admin/quiz/reset", {
               method: "POST",

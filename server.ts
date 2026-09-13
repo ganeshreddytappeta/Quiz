@@ -559,6 +559,8 @@ async function startQuiz() {
   await startQuestion(0);
 }
 
+let isTransitioningQuestion = false;
+
 // Flow: Start Question (Admin Controlled - No Timers, Stays Active Until Admin Advances)
 async function startQuestion(index: number) {
   if (index >= activeQuestions.length) {
@@ -590,8 +592,7 @@ async function startQuestion(index: number) {
     }
   }
 
-  // Host gets full question with correctAnswer
-  io.to("host-room").emit("question-start", {
+  const hostPayload = {
     questionIndex: index,
     questionNumber: index + 1,
     totalQuestions: activeQuestions.length,
@@ -599,16 +600,28 @@ async function startQuestion(index: number) {
     options: currentQ.options,
     correctAnswer: currentQ.correctAnswer,
     isFinalQuestion: index === activeQuestions.length - 1
-  });
+  };
 
-  // Teams get question WITHOUT correctAnswer and WITHOUT any timer
-  io.to("teams-room").emit("question-start", {
+  const teamPayload = {
     questionIndex: index,
     questionNumber: index + 1,
     totalQuestions: activeQuestions.length,
     question: currentQ.question,
     options: currentQ.options,
     isFinalQuestion: index === activeQuestions.length - 1
+  };
+
+  // Host gets full question with correctAnswer
+  io.to("host-room").emit("question-start", hostPayload);
+
+  // Teams get question WITHOUT correctAnswer and WITHOUT any timer
+  io.to("teams-room").emit("question-start", teamPayload);
+
+  // Also emit directly to every active team socket to ensure 100% receipt
+  Object.values(quizState.teams).forEach((t) => {
+    if (t.socketId) {
+      io.to(t.socketId).emit("question-start", teamPayload);
+    }
   });
 
   broadcastAll();
@@ -636,11 +649,23 @@ function revealAnswer() {
 // Flow: Next Question (Admin Controlled - The ONLY mechanism that advances the quiz)
 async function nextQuestion() {
   if (quizState.state !== "running") return;
-  const nextIndex = quizState.currentQuestionIndex + 1;
-  if (nextIndex < activeQuestions.length) {
-    await startQuestion(nextIndex);
-  } else {
-    await finishQuiz();
+  if (isTransitioningQuestion) {
+    console.log("nextQuestion ignored: transition already in progress");
+    return;
+  }
+  isTransitioningQuestion = true;
+
+  try {
+    const nextIndex = quizState.currentQuestionIndex + 1;
+    if (nextIndex < activeQuestions.length) {
+      await startQuestion(nextIndex);
+    } else {
+      await finishQuiz();
+    }
+  } finally {
+    setTimeout(() => {
+      isTransitioningQuestion = false;
+    }, 400);
   }
 }
 
@@ -1208,20 +1233,28 @@ socket.on("admin-reveal-answer", () => {
   revealAnswer();
 });
 
-socket.on("next-question", () => {
+socket.on("next-question", async (data?: { token?: string }) => {
+  const token = data?.token;
+  if (token && activeAdminTokens.has(token)) {
+    socket.data.isAdmin = true;
+  }
   if (!socket.data.isAdmin) {
     socket.emit("admin-auth-required", { message: "Admin authentication required." });
     return;
   }
   if (quizState.state === "running") {
-    nextQuestion();
+    await nextQuestion();
   }
 });
 
-socket.on("admin-next-question", () => {
+socket.on("admin-next-question", async (data?: { token?: string }) => {
+  const token = data?.token;
+  if (token && activeAdminTokens.has(token)) {
+    socket.data.isAdmin = true;
+  }
   if (!socket.data.isAdmin) return;
   if (quizState.state === "running") {
-    nextQuestion();
+    await nextQuestion();
   }
 });
 
@@ -1398,14 +1431,12 @@ app.post("/api/admin/quiz/reveal", requireAdminAuth, (req, res) => {
 
 app.post("/api/admin/quiz/next", requireAdminAuth, async (req, res) => {
   if (quizState.state === "running") {
-    const nextIndex = quizState.currentQuestionIndex + 1;
-    if (nextIndex < activeQuestions.length) {
-      await startQuestion(nextIndex);
-      return res.json({ success: true, message: `Advanced to Question ${nextIndex + 1}.`, state: getHostState() });
-    } else {
-      await finishQuiz();
-      return res.json({ success: true, message: "Quiz finished.", state: getHostState() });
-    }
+    await nextQuestion();
+    return res.json({
+      success: true,
+      message: `Question advanced to Question ${quizState.currentQuestionIndex + 1} of ${activeQuestions.length}.`,
+      state: getHostState()
+    });
   }
   res.status(400).json({ success: false, message: `Cannot advance next question from '${quizState.state}' state.` });
 });
