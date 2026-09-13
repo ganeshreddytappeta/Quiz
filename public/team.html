@@ -16,9 +16,6 @@
       <span class="brand-badge" id="navTeamStatusBadge">TEAM ARENA</span>
     </a>
     <div class="nav-links">
-      <button class="sound-toggle-btn" id="soundToggleBtn" type="button" title="Toggle Game Audio">
-        <span id="soundIcon">🔊</span> <span id="soundText">Sound On</span>
-      </button>
       <span id="currentTeamDisplay" style="font-weight: 700; color: #a5b4fc; font-size: 0.9rem; display: none;"></span>
       <button class="btn-danger hidden" id="teamLogoutTopBtn" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">Logout</button>
     </div>
@@ -34,7 +31,7 @@
         <div class="auth-header">
           <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📱</div>
           <h2>Team Login</h2>
-          <p>Choose your team name or enter your passcode to join</p>
+          <p>Enter your team details to join the quiz</p>
         </div>
 
         <form id="teamLoginForm">
@@ -44,27 +41,23 @@
               type="text" 
               class="form-input" 
               id="teamNameInput" 
-              list="registeredTeamsList"
-              placeholder="e.g. Team 1 or pick from list" 
+              placeholder="e.g. Team 1" 
+              required
               autocomplete="off"
             >
-            <datalist id="registeredTeamsList"></datalist>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="teamCodeInput">Team Access Code / Passcode</label>
+            <label class="form-label" for="teamCodeInput">Team Access Code / Password</label>
             <input 
               type="text" 
               class="form-input" 
               id="teamCodeInput" 
-              placeholder="e.g. T1A7 or 86" 
+              placeholder="e.g. T1A7 or password" 
               required
               autocomplete="off"
               style="letter-spacing: 0.05em; font-weight: 600;"
             >
-            <small style="color: var(--text-dim); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
-              💡 Enter your team passcode provided by the host.
-            </small>
           </div>
 
           <div id="loginStatusFeedback" class="hidden" style="margin-top: 0.75rem; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; text-align: center; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe;"></div>
@@ -141,16 +134,16 @@
             <div><strong>4 Options (A, B, C, D):</strong> Each question will present 4 choices. Select the single best answer.</div>
           </li>
           <li>
-            <span class="rule-icon">⚡</span>
-            <div><strong>Speed Matters:</strong> Click your answer as quickly as possible. Faster answers break ties!</div>
+            <span class="rule-icon">🎯</span>
+            <div><strong>Scoring:</strong> Correct answer awards <strong>+1 point</strong>. Wrong or unsubmitted answers get <strong>0 points</strong>.</div>
           </li>
           <li>
-            <span class="rule-icon">🖥️</span>
-            <div><strong>Live Broadcast:</strong> All team answers and response times are broadcast live to the main host screen.</div>
+            <span class="rule-icon">👑</span>
+            <div><strong>Admin Controlled Pace:</strong> There is no question timer. Take your time to think and submit. The admin advances questions.</div>
           </li>
           <li>
-            <span class="rule-icon">⏱️</span>
-            <div><strong>Authoritative Clock:</strong> Response time is officially recorded by the server down to the millisecond.</div>
+            <span class="rule-icon">🔒</span>
+            <div><strong>Lock-In:</strong> Once you submit your answer, your selection is locked for that question.</div>
           </li>
           <li>
             <span class="rule-icon">🤝</span>
@@ -158,14 +151,10 @@
           </li>
         </ul>
 
-        <div class="countdown-box">
-          <p style="font-size: 1rem; color: #c7d2fe; font-weight: 600; margin-bottom: 0.25rem;">
-            The quiz will start in:
+        <div class="countdown-box" style="padding: 1rem;">
+          <p style="font-size: 1.05rem; color: #c7d2fe; font-weight: 700; margin-bottom: 0;">
+            🚀 The host will launch the first question shortly!
           </p>
-          <div class="countdown-number" id="instructionsCountdown">5</div>
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="instructionsProgress" style="width: 100%;"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -180,9 +169,9 @@
           <span>🛡️</span>
           <span id="questionTeamName">Team 1</span>
         </div>
-        <div class="timer-indicator" id="questionTimer">
-          <span>⏱️</span>
-          <span id="questionTimerSeconds">30s</span>
+        <div class="timer-indicator" id="questionRoundBadge" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; font-weight: 700; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 8px;">
+          <span>🎯</span>
+          <span>Live Round</span>
         </div>
       </div>
 
@@ -219,11 +208,8 @@
           <p class="submission-detail">
             You selected: <strong id="submittedOptionLabel">B. New Delhi</strong>
           </p>
-          <div>
-            <span class="submission-time" id="submittedTimeLabel">Time Taken: 00:08</span>
-          </div>
-          <p class="submission-waiting">
-            ⏳ Waiting for other teams to submit...
+          <p class="submission-waiting" style="margin-top: 1rem; font-size: 1rem; color: #93c5fd;">
+            ⏳ Waiting for the admin to advance to the next question...
           </p>
         </div>
       </div>
@@ -235,13 +221,9 @@
     <div class="auth-wrapper hidden fade-in" id="viewTransition">
       <div class="card-glass waiting-card">
         <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">⏭️</div>
-        <h2 class="waiting-title" style="margin-bottom: 0.5rem;" id="transitionHeading">Next Question in</h2>
-        <div class="countdown-number" id="transitionCountdown" style="color: #38bdf8;">5</div>
-        <div class="progress-bar-bg" style="max-width: 320px; margin: 1rem auto;">
-          <div class="progress-bar-fill" id="transitionProgress" style="width: 100%;"></div>
-        </div>
-        <p class="waiting-note" id="transitionSubtext">
-          Prepare for Question 2!
+        <h2 class="waiting-title" style="margin-bottom: 0.5rem;" id="transitionHeading">Get Ready!</h2>
+        <p class="waiting-note" id="transitionSubtext" style="font-size: 1.1rem; color: #e2e8f0; margin-top: 1rem;">
+          The admin will launch the next question shortly.
         </p>
       </div>
     </div>
@@ -273,10 +255,10 @@
           <table class="live-table" id="finalScoreboardTable">
             <thead>
               <tr>
-                <th>Rank</th>
+                <th style="width: 70px;">Rank</th>
                 <th>Team Name</th>
-                <th>Correct Answers</th>
-                <th>Total Time (s)</th>
+                <th style="width: 160px; text-align: center;">Correct Answers</th>
+                <th style="width: 140px; text-align: center;">Total Score</th>
               </tr>
             </thead>
             <tbody id="finalScoreboardBody">

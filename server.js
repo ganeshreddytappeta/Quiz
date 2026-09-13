@@ -188,7 +188,7 @@ var questionSchema = new mongoose2.Schema({
   },
   timeLimit: {
     type: Number,
-    default: 30
+    default: 0
   },
   createdAt: {
     type: Date,
@@ -273,7 +273,7 @@ var answerSchema = new mongoose4.Schema({
   },
   responseTime: {
     type: Number,
-    required: true
+    default: 0
   },
   submittedAt: {
     type: Date,
@@ -313,7 +313,6 @@ var resultSchema = new mongoose5.Schema({
   },
   totalResponseTime: {
     type: Number,
-    required: true,
     default: 0
   },
   rank: {
@@ -788,15 +787,7 @@ var activeQuizSessionId = null;
 var quizState = {
   state: "idle",
   currentQuestionIndex: -1,
-  questionStartTime: null,
-  questionDuration: 30,
-  // 30 seconds per question
-  instructionsDuration: 5,
-  // 5 seconds instructions countdown
-  transitionDuration: 5,
-  // 5 seconds next question countdown
-  firstCorrectAnswerTeam: null,
-  firstCorrectAnswerTime: null,
+  isAnswerRevealed: false,
   teams: {}
 };
 function initTeams() {
@@ -937,31 +928,14 @@ async function syncMongoData() {
   }
 }
 connectToMongoDB();
-var activeTimer = null;
-var earlyTimeoutHandle = null;
-var timerSecondsLeft = 0;
-function clearCurrentTimer() {
-  if (activeTimer) {
-    clearInterval(activeTimer);
-    activeTimer = null;
-  }
-  if (earlyTimeoutHandle) {
-    clearTimeout(earlyTimeoutHandle);
-    earlyTimeoutHandle = null;
-  }
-}
 function calculateRankings() {
   const teamList = Object.values(quizState.teams);
-  const isQuestionActive = quizState.state === "question" && quizState.questionStartTime !== null;
-  const currentElapsed = isQuestionActive ? Math.min(quizState.questionDuration, Math.max(0, (Date.now() - (quizState.questionStartTime || Date.now())) / 1e3)) : 0;
   const sorted = teamList.slice().sort((a, b) => {
     if (b.score !== a.score) {
       return b.score - a.score;
     }
-    const aEffectiveTime = isQuestionActive && !a.currentAnswer ? a.totalTime + currentElapsed : a.totalTime;
-    const bEffectiveTime = isQuestionActive && !b.currentAnswer ? b.totalTime + currentElapsed : b.totalTime;
-    if (Math.abs(aEffectiveTime - bEffectiveTime) > 1e-3) {
-      return aEffectiveTime - bEffectiveTime;
+    if (a.totalTime !== b.totalTime) {
+      return a.totalTime - b.totalTime;
     }
     return a.teamName.localeCompare(b.teamName);
   });
@@ -991,6 +965,7 @@ function calculateRankings() {
       score: team.score,
       totalTime: Number(team.totalTime.toFixed(2)),
       currentAnswer: team.currentAnswer,
+      hasAnswered: team.currentAnswer !== null,
       currentAnswerTime: team.currentAnswerTime,
       currentResult: team.currentResult,
       isFirstCorrect: team.isFirstCorrect
@@ -1008,60 +983,69 @@ function calculateRankings() {
 }
 function getHostState() {
   const currentQ = activeQuestions[quizState.currentQuestionIndex] || null;
+  const connectedTeams = Object.values(quizState.teams).filter((t) => t.connected);
+  const teamsList = Object.values(quizState.teams).map((t) => ({
+    teamName: t.teamName,
+    connected: t.connected,
+    score: t.score,
+    currentAnswer: t.currentAnswer,
+    hasAnswered: t.currentAnswer !== null,
+    currentResult: t.currentResult
+  }));
+  const answeredCount = teamsList.filter((t) => t.hasAnswered).length;
+  const totalTeamsCount = teamsList.length;
+  const allAnswered = totalTeamsCount > 0 && answeredCount === totalTeamsCount;
+  const notAnsweredTeams = teamsList.filter((t) => !t.hasAnswered).map((t) => t.teamName);
   return {
     state: quizState.state,
     quizId: activeQuizSessionId,
     currentQuestionIndex: quizState.currentQuestionIndex,
+    currentQuestionNumber: quizState.currentQuestionIndex + 1,
     totalQuestions: activeQuestions.length,
+    isFinalQuestion: quizState.currentQuestionIndex === activeQuestions.length - 1,
+    isAnswerRevealed: quizState.isAnswerRevealed,
     currentQuestion: currentQ ? {
       id: currentQ.id,
       question: currentQ.question,
       options: currentQ.options,
       correctAnswer: currentQ.correctAnswer
     } : null,
-    timerSecondsLeft,
-    questionDuration: quizState.questionDuration,
-    firstCorrectAnswerTeam: quizState.firstCorrectAnswerTeam,
-    firstCorrectAnswerTime: quizState.firstCorrectAnswerTime,
-    connectedCount: Object.values(quizState.teams).filter((t) => t.connected).length,
+    answeredCount,
+    totalTeamsCount,
+    allAnswered,
+    notAnsweredTeams,
+    connectedCount: connectedTeams.length,
     totalTeams: activeTeams.length,
     databaseStatus: {
       connected: isMongoConnected,
       status: isMongoConnected ? "MongoDB Connected" : mongoStatusMessage
     },
-    teams: Object.values(quizState.teams).map((t) => ({
-      teamName: t.teamName,
-      connected: t.connected,
-      score: t.score,
-      totalTime: Number(t.totalTime.toFixed(2)),
-      currentAnswer: t.currentAnswer,
-      currentAnswerTime: t.currentAnswerTime,
-      currentResult: t.currentResult,
-      isFirstCorrect: t.isFirstCorrect
-    })),
+    teams: teamsList,
     rankings: calculateRankings()
   };
 }
 function getTeamState(teamName) {
   const team = quizState.teams[teamName];
   const currentQ = activeQuestions[quizState.currentQuestionIndex] || null;
+  const hasSubmitted = team ? team.currentAnswer !== null : false;
   return {
     state: quizState.state,
     teamName,
     connected: team?.connected || false,
     score: team?.score || 0,
-    totalTime: team ? Number(team.totalTime.toFixed(2)) : 0,
     currentQuestionIndex: quizState.currentQuestionIndex,
+    currentQuestionNumber: quizState.currentQuestionIndex + 1,
     totalQuestions: activeQuestions.length,
+    isFinalQuestion: quizState.currentQuestionIndex === activeQuestions.length - 1,
     currentQuestion: currentQ ? {
       id: currentQ.id,
       question: currentQ.question,
       options: currentQ.options
     } : null,
-    timerSecondsLeft,
     currentAnswer: team?.currentAnswer || null,
-    currentAnswerTime: team?.currentAnswerTime || null,
-    currentResult: team?.currentResult || "waiting",
+    hasSubmitted,
+    isAnswerRevealed: quizState.isAnswerRevealed,
+    currentResult: quizState.isAnswerRevealed ? team?.currentResult || "waiting" : "waiting",
     rankings: calculateRankings()
   };
 }
@@ -1080,65 +1064,43 @@ function broadcastAll() {
   broadcastHostUpdate();
   broadcastTeamsUpdate();
 }
-async function startInstructions() {
-  clearCurrentTimer();
-  quizState.state = "instructions";
-  timerSecondsLeft = quizState.instructionsDuration;
+async function startQuiz() {
+  quizState.state = "running";
+  quizState.isAnswerRevealed = false;
+  activeQuizSessionId = null;
   if (isMongoConnected) {
     try {
       const newQuiz = await Quiz2.create({
         quizName: "Quiz Arena",
-        status: "instructions",
-        currentQuestion: 0,
-        totalQuestions: activeQuestions.length,
-        questionStartTime: null,
-        questionEndTime: null
+        status: "running",
+        currentQuestion: 1,
+        totalQuestions: activeQuestions.length
       });
       activeQuizSessionId = newQuiz._id?.toString();
     } catch (e) {
       console.error("Failed to create Quiz in MongoDB:", e.message);
     }
   }
-  io.emit("show-instructions", {
-    duration: quizState.instructionsDuration,
-    message: "The quiz will start in 5 seconds..."
-  });
-  broadcastAll();
-  activeTimer = setInterval(() => {
-    timerSecondsLeft--;
-    io.emit("timer-tick", { timerSecondsLeft });
-    if (timerSecondsLeft <= 0) {
-      clearCurrentTimer();
-      startQuestion(0);
-    }
-  }, 1e3);
+  await startQuestion(0);
 }
 async function startQuestion(index) {
   if (index >= activeQuestions.length) {
-    finishQuiz();
+    await finishQuiz();
     return;
   }
-  clearCurrentTimer();
-  quizState.state = "question";
+  quizState.state = "running";
   quizState.currentQuestionIndex = index;
-  quizState.questionStartTime = Date.now();
-  quizState.firstCorrectAnswerTeam = null;
-  quizState.firstCorrectAnswerTime = null;
+  quizState.isAnswerRevealed = false;
   Object.values(quizState.teams).forEach((t) => {
     t.currentAnswer = null;
-    t.currentAnswerTime = null;
     t.currentResult = "waiting";
-    t.isFirstCorrect = false;
   });
   const currentQ = activeQuestions[index];
-  timerSecondsLeft = quizState.questionDuration;
   if (isMongoConnected && activeQuizSessionId) {
     try {
       await Quiz2.findByIdAndUpdate(activeQuizSessionId, {
         status: "running",
-        currentQuestion: index + 1,
-        questionStartTime: new Date(quizState.questionStartTime),
-        questionEndTime: new Date(quizState.questionStartTime + quizState.questionDuration * 1e3)
+        currentQuestion: index + 1
       });
     } catch (err) {
       console.error("Error updating Quiz status in MongoDB:", err.message);
@@ -1151,7 +1113,7 @@ async function startQuestion(index) {
     question: currentQ.question,
     options: currentQ.options,
     correctAnswer: currentQ.correctAnswer,
-    duration: quizState.questionDuration
+    isFinalQuestion: index === activeQuestions.length - 1
   });
   io.to("teams-room").emit("question-start", {
     questionIndex: index,
@@ -1159,109 +1121,36 @@ async function startQuestion(index) {
     totalQuestions: activeQuestions.length,
     question: currentQ.question,
     options: currentQ.options,
-    duration: quizState.questionDuration
+    isFinalQuestion: index === activeQuestions.length - 1
   });
   broadcastAll();
-  activeTimer = setInterval(() => {
-    timerSecondsLeft--;
-    io.emit("timer-tick", { timerSecondsLeft });
-    if (timerSecondsLeft <= 0) {
-      clearCurrentTimer();
-      handleQuestionTimeout();
-    }
-  }, 1e3);
 }
-function checkAllAnswersSubmitted() {
-  const connectedTeams = Object.values(quizState.teams).filter((t) => t.connected);
-  if (connectedTeams.length === 0) return;
-  const allSubmitted = connectedTeams.every(
-    (t) => t.currentAnswer !== null && t.currentAnswer !== void 0
-  );
-  if (allSubmitted && quizState.state === "question" && !earlyTimeoutHandle) {
-    clearCurrentTimer();
-    earlyTimeoutHandle = setTimeout(() => {
-      earlyTimeoutHandle = null;
-      handleQuestionTimeout();
-    }, 1200);
-  }
-}
-async function handleQuestionTimeout() {
-  clearCurrentTimer();
-  if (quizState.state !== "question") return;
-  quizState.state = "transition";
+function revealAnswer() {
+  if (quizState.state !== "running" || quizState.currentQuestionIndex < 0) return;
   const currentQ = activeQuestions[quizState.currentQuestionIndex];
   if (!currentQ) return;
-  for (const team of Object.values(quizState.teams)) {
-    if (!team.currentAnswer) {
-      team.currentAnswer = "None";
-      team.currentAnswerTime = quizState.questionDuration;
-      team.currentResult = "no-answer";
-      team.totalTime += quizState.questionDuration;
-      team.history.push({
-        questionIndex: quizState.currentQuestionIndex,
-        answer: null,
-        time: quizState.questionDuration,
-        result: "no-answer"
-      });
-      if (isMongoConnected) {
-        try {
-          await Answer2.create({
-            quizId: activeQuizSessionId || null,
-            teamName: team.teamName,
-            questionNumber: quizState.currentQuestionIndex + 1,
-            selectedAnswer: "None",
-            correctAnswer: currentQ.correctAnswer,
-            isCorrect: false,
-            responseTime: quizState.questionDuration,
-            submittedAt: /* @__PURE__ */ new Date(),
-            status: "timeout"
-          });
-        } catch (e) {
-        }
-      }
-    }
-  }
-  io.emit("question-timeout", {
+  quizState.isAnswerRevealed = !quizState.isAnswerRevealed;
+  io.emit("answer-revealed", {
     questionIndex: quizState.currentQuestionIndex,
+    questionNumber: quizState.currentQuestionIndex + 1,
     correctAnswer: currentQ.correctAnswer,
+    isRevealed: quizState.isAnswerRevealed,
     rankings: calculateRankings()
   });
   broadcastAll();
-  startTransitionCountdown();
 }
-function startTransitionCountdown() {
-  quizState.state = "transition";
-  timerSecondsLeft = quizState.transitionDuration;
-  const nextQNum = quizState.currentQuestionIndex + 2;
-  const isFinal = nextQNum > activeQuestions.length;
-  if (isMongoConnected && activeQuizSessionId) {
-    Quiz2.findByIdAndUpdate(activeQuizSessionId, { status: "between_questions" }).catch(() => {
-    });
+async function nextQuestion() {
+  if (quizState.state !== "running") return;
+  const nextIndex = quizState.currentQuestionIndex + 1;
+  if (nextIndex < activeQuestions.length) {
+    await startQuestion(nextIndex);
+  } else {
+    await finishQuiz();
   }
-  io.emit("show-next-question", {
-    transitionSeconds: quizState.transitionDuration,
-    nextQuestionNumber: nextQNum,
-    isFinal,
-    totalQuestions: activeQuestions.length
-  });
-  broadcastAll();
-  activeTimer = setInterval(() => {
-    timerSecondsLeft--;
-    io.emit("timer-tick", { timerSecondsLeft });
-    if (timerSecondsLeft <= 0) {
-      clearCurrentTimer();
-      const nextIndex = quizState.currentQuestionIndex + 1;
-      if (nextIndex < activeQuestions.length) {
-        startQuestion(nextIndex);
-      } else {
-        finishQuiz();
-      }
-    }
-  }, 1e3);
 }
 async function finishQuiz() {
-  clearCurrentTimer();
   quizState.state = "finished";
+  quizState.isAnswerRevealed = true;
   const rankings = calculateRankings();
   const winner = rankings[0] || null;
   if (isMongoConnected) {
@@ -1277,7 +1166,7 @@ async function finishQuiz() {
           quizId: activeQuizSessionId || null,
           teamName: r.teamName,
           correctAnswers: r.score,
-          totalResponseTime: r.totalTime,
+          totalResponseTime: 0,
           rank: r.rank,
           createdAt: /* @__PURE__ */ new Date()
         });
@@ -1295,21 +1184,14 @@ async function finishQuiz() {
   broadcastAll();
 }
 async function resetQuiz() {
-  clearCurrentTimer();
   quizState.state = "idle";
   quizState.currentQuestionIndex = -1;
-  quizState.questionStartTime = null;
-  quizState.firstCorrectAnswerTeam = null;
-  quizState.firstCorrectAnswerTime = null;
-  timerSecondsLeft = 0;
+  quizState.isAnswerRevealed = false;
   activeQuizSessionId = null;
   Object.values(quizState.teams).forEach((t) => {
     t.score = 0;
-    t.totalTime = 0;
     t.currentAnswer = null;
-    t.currentAnswerTime = null;
     t.currentResult = "waiting";
-    t.isFirstCorrect = false;
     t.history = [];
   });
   if (isMongoConnected) {
@@ -1327,20 +1209,7 @@ async function resetQuiz() {
 function findTeamByCredentials(inputName, inputCode) {
   const trimmedName = (inputName || "").trim();
   const trimmedCode = (inputCode || "").trim().toUpperCase();
-  if (!trimmedCode) return null;
-  if (!trimmedName && trimmedCode) {
-    const normalizedInput2 = trimmedCode.replace(/\s+/g, "");
-    const codeMatch = activeTeams.find(
-      (t) => t.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput2
-    ) || DEFAULT_TEAMS.find(
-      (dt) => dt.code.trim().toUpperCase().replace(/\s+/g, "") === normalizedInput2
-    );
-    if (codeMatch) {
-      const canonical = activeTeams.find((t) => t.id === codeMatch.id) || codeMatch;
-      return { team: canonical, canonicalName: canonical.name };
-    }
-    return null;
-  }
+  if (!trimmedName || !trimmedCode) return null;
   let target = activeTeams.find(
     (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
   );
@@ -1419,7 +1288,7 @@ io.on("connection", (socket) => {
   });
   socket.on("host-start", () => {
     if (socket.data.isAdmin && (quizState.state === "idle" || quizState.state === "finished")) {
-      startInstructions();
+      startQuiz();
     }
   });
   socket.on("host-reset", () => {
@@ -1559,10 +1428,13 @@ io.on("connection", (socket) => {
         Team2.findOneAndUpdate({ teamName: actualName }, { isConnected: true, socketId: socket.id }).catch(() => {
         });
       }
+      const hasSubmitted = teamRecord.currentAnswer !== null;
       socket.emit("reconnect-response", {
         success: true,
         teamName: actualName,
         sessionToken: teamRecord.sessionToken,
+        hasSubmitted,
+        selectedAnswer: teamRecord.currentAnswer,
         stateData: getTeamState(actualName)
       });
       broadcastAll();
@@ -1575,28 +1447,24 @@ io.on("connection", (socket) => {
   });
   socket.on("submit-answer", async (data) => {
     const teamName = socket.data.teamName;
-    if (!teamName) return;
+    if (!teamName) {
+      socket.emit("answer-rejected", { message: "You are not logged in as a team." });
+      return;
+    }
     const team = quizState.teams[teamName];
-    if (!team) return;
-    if (quizState.state !== "question" || quizState.questionStartTime === null) {
+    if (!team) {
+      socket.emit("answer-rejected", { message: "Team record not found." });
+      return;
+    }
+    if (quizState.state !== "running" || quizState.currentQuestionIndex < 0) {
       socket.emit("answer-rejected", {
-        message: "Question is not currently active."
+        message: "No question is currently active."
       });
       return;
     }
     if (team.currentAnswer !== null) {
       socket.emit("answer-rejected", {
-        message: "Answer already submitted."
-      });
-      return;
-    }
-    const serverTimestamp = Date.now();
-    const elapsedSeconds = Number(
-      ((serverTimestamp - quizState.questionStartTime) / 1e3).toFixed(2)
-    );
-    if (elapsedSeconds > quizState.questionDuration + 0.5) {
-      socket.emit("answer-rejected", {
-        message: "Time has expired for this question."
+        message: "Answer already submitted for this question."
       });
       return;
     }
@@ -1606,27 +1474,19 @@ io.on("connection", (socket) => {
     const selectedOption = rawChoice.toUpperCase();
     if (!["A", "B", "C", "D"].includes(selectedOption)) {
       socket.emit("answer-rejected", {
-        message: "Invalid option selected."
+        message: "Invalid option selected. Please choose A, B, C, or D."
       });
       return;
     }
     const isCorrect = selectedOption === currentQ.correctAnswer;
     team.currentAnswer = selectedOption;
-    team.currentAnswerTime = elapsedSeconds;
     team.currentResult = isCorrect ? "correct" : "wrong";
-    team.totalTime += elapsedSeconds;
     if (isCorrect) {
       team.score += 1;
-      if (!quizState.firstCorrectAnswerTeam) {
-        quizState.firstCorrectAnswerTeam = teamName;
-        quizState.firstCorrectAnswerTime = elapsedSeconds;
-        team.isFirstCorrect = true;
-      }
     }
     team.history.push({
       questionIndex: quizState.currentQuestionIndex,
       answer: selectedOption,
-      time: elapsedSeconds,
       result: isCorrect ? "correct" : "wrong"
     });
     if (isMongoConnected) {
@@ -1638,7 +1498,7 @@ io.on("connection", (socket) => {
           selectedAnswer: selectedOption,
           correctAnswer: currentQ.correctAnswer,
           isCorrect,
-          responseTime: elapsedSeconds,
+          responseTime: 0,
           submittedAt: /* @__PURE__ */ new Date(),
           status: "answered"
         });
@@ -1646,8 +1506,7 @@ io.on("connection", (socket) => {
           { teamName },
           {
             $inc: {
-              totalScore: isCorrect ? 1 : 0,
-              totalResponseTime: elapsedSeconds
+              totalScore: isCorrect ? 1 : 0
             }
           }
         );
@@ -1658,30 +1517,43 @@ io.on("connection", (socket) => {
     socket.emit("answer-received", {
       success: true,
       selectedAnswer: selectedOption,
-      responseTime: elapsedSeconds,
-      formattedTime: formatDuration(elapsedSeconds),
-      status: "Answer Submitted!"
+      status: "Answer Submitted!",
+      message: "Answer Submitted! Please wait for the admin to move to the next question."
     });
-    io.to("host-room").emit("answer-received", {
+    socket.emit("answer-submitted", {
+      success: true,
+      selectedAnswer: selectedOption,
+      status: "Answer Submitted!",
+      message: "Answer Submitted! Please wait for the admin to move to the next question."
+    });
+    const currentTeamsList = Object.values(quizState.teams);
+    const answeredCount = currentTeamsList.filter((t) => t.currentAnswer !== null).length;
+    const totalCount = currentTeamsList.length;
+    const allAnswered = totalCount > 0 && answeredCount === totalCount;
+    const notAnsweredTeams = currentTeamsList.filter((t) => t.currentAnswer === null).map((t) => t.teamName);
+    io.to("host-room").emit("team-status-update", {
       teamName,
       selectedAnswer: selectedOption,
-      responseTime: elapsedSeconds,
+      status: "Answered",
+      answeredCount,
+      totalTeams: totalCount,
+      allAnswered,
+      notAnsweredTeams,
       isCorrect,
-      score: team.score,
-      rankings: calculateRankings()
+      score: team.score
     });
     io.to("host-room").emit("live-answer-update", {
       teamName,
       answer: selectedOption,
-      time: elapsedSeconds,
-      formattedTime: formatDuration(elapsedSeconds),
       result: team.currentResult,
-      isFirstCorrect: team.isFirstCorrect,
       score: team.score,
-      totalTime: Number(team.totalTime.toFixed(2))
+      answeredCount,
+      totalTeams: totalCount,
+      allAnswered,
+      notAnsweredTeams
     });
     broadcastHostUpdate();
-    checkAllAnswersSubmitted();
+    socket.emit("team-update", getTeamState(teamName));
   });
   socket.on("team-logout", async () => {
     const teamName = socket.data.teamName;
@@ -1705,34 +1577,65 @@ io.on("connection", (socket) => {
       return;
     }
     if (quizState.state === "idle" || quizState.state === "finished") {
-      startInstructions();
+      startQuiz();
     }
+  });
+  socket.on("admin-start-quiz", () => {
+    if (!socket.data.isAdmin) return;
+    if (quizState.state === "idle" || quizState.state === "finished") {
+      startQuiz();
+    }
+  });
+  socket.on("host-start", () => {
+    if (!socket.data.isAdmin) return;
+    if (quizState.state === "idle" || quizState.state === "finished") {
+      startQuiz();
+    }
+  });
+  socket.on("reveal-answer", () => {
+    if (!socket.data.isAdmin) return;
+    revealAnswer();
+  });
+  socket.on("admin-reveal-answer", () => {
+    if (!socket.data.isAdmin) return;
+    revealAnswer();
   });
   socket.on("next-question", () => {
     if (!socket.data.isAdmin) {
       socket.emit("admin-auth-required", { message: "Admin authentication required." });
       return;
     }
-    if (quizState.state === "instructions") {
-      clearCurrentTimer();
-      startQuestion(0);
-      return;
+    if (quizState.state === "running") {
+      nextQuestion();
     }
-    if (quizState.state === "question" || quizState.state === "transition") {
-      clearCurrentTimer();
-      const nextIndex = quizState.currentQuestionIndex + 1;
-      if (nextIndex < activeQuestions.length) {
-        startQuestion(nextIndex);
-      } else {
-        finishQuiz();
-      }
+  });
+  socket.on("admin-next-question", () => {
+    if (!socket.data.isAdmin) return;
+    if (quizState.state === "running") {
+      nextQuestion();
     }
   });
   socket.on("end-quiz", () => {
     if (!socket.data.isAdmin) return;
     finishQuiz();
   });
+  socket.on("finish-quiz", () => {
+    if (!socket.data.isAdmin) return;
+    finishQuiz();
+  });
+  socket.on("admin-finish-quiz", () => {
+    if (!socket.data.isAdmin) return;
+    finishQuiz();
+  });
+  socket.on("host-end", () => {
+    if (!socket.data.isAdmin) return;
+    finishQuiz();
+  });
   socket.on("reset-quiz", () => {
+    if (!socket.data.isAdmin) return;
+    resetQuiz();
+  });
+  socket.on("host-reset", () => {
     if (!socket.data.isAdmin) return;
     resetQuiz();
   });
@@ -1750,16 +1653,7 @@ io.on("connection", (socket) => {
     }
   });
 });
-function formatDuration(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-}
 app.use(express4.json());
-app.locals.quizState = quizState;
-app.locals.activeQuestions = activeQuestions;
-app.locals.timerSecondsLeft = timerSecondsLeft;
-app.locals.calculateRankings = calculateRankings;
 app.use("/api/teams", teamRoutes_default);
 app.use("/api/questions", questionRoutes_default);
 app.use("/api/quiz", quizRoutes_default);
@@ -1829,39 +1723,49 @@ app.post("/api/admin/logout", (req, res) => {
   }
   res.json({ success: true, message: "Admin logged out successfully." });
 });
-app.post("/api/admin/quiz/start", requireAdminAuth, (req, res) => {
+app.post("/api/admin/quiz/start", requireAdminAuth, async (req, res) => {
   if (quizState.state === "idle" || quizState.state === "finished") {
-    startInstructions();
-    return res.json({ success: true, message: "Quiz started.", state: getHostState() });
+    await startQuiz();
+    return res.json({ success: true, message: "Quiz started at Question 1.", state: getHostState() });
   }
   res.json({ success: true, message: "Quiz already in progress.", state: getHostState() });
 });
-app.post("/api/admin/quiz/next", requireAdminAuth, (req, res) => {
-  if (quizState.state === "instructions") {
-    clearCurrentTimer();
-    startQuestion(0);
-    return res.json({ success: true, message: "Advanced to Question 1.", state: getHostState() });
+app.post("/api/admin/quiz/reveal", requireAdminAuth, (req, res) => {
+  if (quizState.state === "running") {
+    revealAnswer();
+    return res.json({
+      success: true,
+      isAnswerRevealed: quizState.isAnswerRevealed,
+      message: quizState.isAnswerRevealed ? "Answer revealed to teams." : "Answer hidden.",
+      state: getHostState()
+    });
   }
-  if (quizState.state === "question" || quizState.state === "transition") {
-    clearCurrentTimer();
+  res.status(400).json({ success: false, message: "Quiz is not currently running." });
+});
+app.post("/api/admin/quiz/next", requireAdminAuth, async (req, res) => {
+  if (quizState.state === "running") {
     const nextIndex = quizState.currentQuestionIndex + 1;
     if (nextIndex < activeQuestions.length) {
-      startQuestion(nextIndex);
+      await startQuestion(nextIndex);
       return res.json({ success: true, message: `Advanced to Question ${nextIndex + 1}.`, state: getHostState() });
     } else {
-      finishQuiz();
+      await finishQuiz();
       return res.json({ success: true, message: "Quiz finished.", state: getHostState() });
     }
   }
   res.status(400).json({ success: false, message: `Cannot advance next question from '${quizState.state}' state.` });
 });
-app.post("/api/admin/quiz/reset", requireAdminAuth, (req, res) => {
-  resetQuiz();
-  res.json({ success: true, message: "Quiz reset to lobby successfully.", state: getHostState() });
-});
-app.post("/api/admin/quiz/end", requireAdminAuth, (req, res) => {
-  finishQuiz();
+app.post("/api/admin/quiz/finish", requireAdminAuth, async (req, res) => {
+  await finishQuiz();
   res.json({ success: true, message: "Quiz ended and scoreboard finalized.", state: getHostState() });
+});
+app.post("/api/admin/quiz/end", requireAdminAuth, async (req, res) => {
+  await finishQuiz();
+  res.json({ success: true, message: "Quiz ended and scoreboard finalized.", state: getHostState() });
+});
+app.post("/api/admin/quiz/reset", requireAdminAuth, async (req, res) => {
+  await resetQuiz();
+  res.json({ success: true, message: "Quiz reset to lobby successfully.", state: getHostState() });
 });
 app.get("/api/admin/questions", requireAdminAuth, (req, res) => {
   res.json({
@@ -2439,13 +2343,13 @@ function sendStaticHtml(res, fallbackFilename, ...candidateNames) {
   }
 }
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
-});
-app.get(["/landing", "/index.html"], (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 app.get(["/team", "/team.html"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
+});
+app.get("/index.html", (req, res) => {
+  res.redirect("/");
 });
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
   sendStaticHtml(res, "host.html", "public/host.html", "dist/host.html");

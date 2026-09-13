@@ -35,7 +35,7 @@ const answerSchema = new mongoose.Schema({
   },
   responseTime: {
     type: Number,
-    required: true
+    default: 0
   },
   submittedAt: {
     type: Date,

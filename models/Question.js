@@ -28,7 +28,7 @@ const questionSchema = new mongoose.Schema({
   },
   timeLimit: {
     type: Number,
-    default: 30
+    default: 0
   },
   createdAt: {
     type: Date,
