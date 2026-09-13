@@ -646,7 +646,7 @@ var io = new Server(server, {
   pingTimeout: 3e4,
   pingInterval: 1e4
 });
-var PORT = 3e3;
+var PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
 var MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/quiz_arena";
 var ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 var ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.HOST_PASSWORD || "admin@123";
