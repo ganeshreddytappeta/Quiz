@@ -1,32 +1,19 @@
 [
   {
     "id": 1,
-    "question": "sai krishna crush?",
+    "question": "What is the capital city of India?",
     "options": {
-      "A": "yasaswi",
-      "B": "sharadha",
-      "C": "hemanth",
-      "D": "bhanu"
+      "A": "Mumbai",
+      "B": "New Delhi",
+      "C": "Chennai",
+      "D": "Kolkata"
     },
-    "correctAnswer": "A",
+    "correctAnswer": "B",
     "category": "General Knowledge",
     "timeLimit": 30
   },
   {
     "id": 2,
-    "question": "Harsha bestfriend?",
-    "options": {
-      "A": "Subhash",
-      "B": "Jawanth",
-      "C": "ganesh",
-      "D": "others"
-    },
-    "correctAnswer": "D",
-    "category": "General Knowledge",
-    "timeLimit": 30
-  },
-  {
-    "id": 3,
     "question": "Which planet in our solar system is famously known as the 'Red Planet'?",
     "options": {
       "A": "Venus",
@@ -39,7 +26,7 @@
     "timeLimit": 30
   },
   {
-    "id": 4,
+    "id": 3,
     "question": "Who is credited with inventing the World Wide Web in 1989?",
     "options": {
       "A": "Tim Berners-Lee",
@@ -52,7 +39,7 @@
     "timeLimit": 30
   },
   {
-    "id": 5,
+    "id": 4,
     "question": "What is the chemical symbol for the element Gold?",
     "options": {
       "A": "Ag",
@@ -65,7 +52,7 @@
     "timeLimit": 30
   },
   {
-    "id": 6,
+    "id": 5,
     "question": "Which ocean is the largest and deepest ocean on Earth?",
     "options": {
       "A": "Atlantic Ocean",
@@ -78,7 +65,7 @@
     "timeLimit": 30
   },
   {
-    "id": 7,
+    "id": 6,
     "question": "In computer science, what does 'RAM' stand for?",
     "options": {
       "A": "Rapid Access Module",
@@ -91,7 +78,7 @@
     "timeLimit": 30
   },
   {
-    "id": 8,
+    "id": 7,
     "question": "How many continents are there on planet Earth?",
     "options": {
       "A": "5",
@@ -104,7 +91,7 @@
     "timeLimit": 30
   },
   {
-    "id": 9,
+    "id": 8,
     "question": "Which instrument is used to measure atmospheric pressure?",
     "options": {
       "A": "Thermometer",
@@ -117,7 +104,7 @@
     "timeLimit": 30
   },
   {
-    "id": 10,
+    "id": 9,
     "question": "Which country is the largest in the world by land area?",
     "options": {
       "A": "Canada",
@@ -130,7 +117,7 @@
     "timeLimit": 30
   },
   {
-    "id": 11,
+    "id": 10,
     "question": "What is the speed of light in vacuum approximately?",
     "options": {
       "A": "300,000 km/s",
