@@ -1,132 +1,392 @@
 [
   {
     "id": 1,
-    "question": "What is the capital city of India?",
+    "question": "If five machines can make five widgets in five minutes, how many minutes does it take 100 machines to make 100 widgets?",
     "options": {
-      "A": "Mumbai",
-      "B": "New Delhi",
-      "C": "Chennai",
-      "D": "Kolkata"
+      "A": "100 minutes",
+      "B": "20 minutes",
+      "C": "5 minutes",
+      "D": "1 minute"
     },
-    "correctAnswer": "B",
-    "category": "General Knowledge",
+    "correctAnswer": "C",
+    "category": "Logical Thinking",
     "timeLimit": 30
   },
   {
     "id": 2,
-    "question": "Which planet in our solar system is famously known as the 'Red Planet'?",
+    "question": "I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?",
     "options": {
-      "A": "Venus",
-      "B": "Jupiter",
-      "C": "Mars",
-      "D": "Saturn"
+      "A": "A globe",
+      "B": "A map",
+      "C": "A desert",
+      "D": "A painting"
     },
-    "correctAnswer": "C",
-    "category": "General Knowledge",
+    "correctAnswer": "B",
+    "category": "Riddles",
     "timeLimit": 30
   },
   {
     "id": 3,
-    "question": "Who is credited with inventing the World Wide Web in 1989?",
+    "question": "If you overtake the person running in second place during a marathon, what position are you in now?",
     "options": {
-      "A": "Tim Berners-Lee",
-      "B": "Alan Turing",
-      "C": "Steve Jobs",
-      "D": "Bill Gates"
+      "A": "1st place",
+      "B": "2nd place",
+      "C": "3rd place",
+      "D": "Tied for 1st"
     },
-    "correctAnswer": "A",
-    "category": "General Knowledge",
+    "correctAnswer": "B",
+    "category": "Quick Reasoning",
     "timeLimit": 30
   },
   {
     "id": 4,
-    "question": "What is the chemical symbol for the element Gold?",
+    "question": "The more you take out of it, the bigger it gets. What is it?",
     "options": {
-      "A": "Ag",
-      "B": "Fe",
-      "C": "Au",
-      "D": "Pb"
+      "A": "A hole",
+      "B": "A balloon",
+      "C": "A sponge",
+      "D": "A cave"
     },
-    "correctAnswer": "C",
-    "category": "General Knowledge",
+    "correctAnswer": "A",
+    "category": "Riddles",
     "timeLimit": 30
   },
   {
     "id": 5,
-    "question": "Which ocean is the largest and deepest ocean on Earth?",
+    "question": "Look at the number series: 2, 6, 12, 20, 30, ... What number should come next?",
     "options": {
-      "A": "Atlantic Ocean",
-      "B": "Indian Ocean",
-      "C": "Arctic Ocean",
-      "D": "Pacific Ocean"
+      "A": "40",
+      "B": "42",
+      "C": "44",
+      "D": "46"
     },
-    "correctAnswer": "D",
-    "category": "General Knowledge",
+    "correctAnswer": "B",
+    "category": "Pattern Recognition",
     "timeLimit": 30
   },
   {
     "id": 6,
-    "question": "In computer science, what does 'RAM' stand for?",
+    "question": "A farmer has 17 sheep, and all but 9 run away during a storm. How many sheep does the farmer have left?",
     "options": {
-      "A": "Rapid Access Module",
-      "B": "Random Access Memory",
-      "C": "Read Alternate Mode",
-      "D": "Remote Automated Mainframe"
+      "A": "8",
+      "B": "9",
+      "C": "0",
+      "D": "17"
     },
     "correctAnswer": "B",
-    "category": "General Knowledge",
+    "category": "Brain Teasers",
     "timeLimit": 30
   },
   {
     "id": 7,
-    "question": "How many continents are there on planet Earth?",
+    "question": "Who is the only batsman in international cricket history to score 100 centuries across all formats?",
     "options": {
-      "A": "5",
-      "B": "6",
-      "C": "7",
-      "D": "8"
+      "A": "Ricky Ponting",
+      "B": "Virat Kohli",
+      "C": "Sachin Tendulkar",
+      "D": "Brian Lara"
     },
     "correctAnswer": "C",
-    "category": "General Knowledge",
+    "category": "Cricket",
     "timeLimit": 30
   },
   {
     "id": 8,
-    "question": "Which instrument is used to measure atmospheric pressure?",
+    "question": "What is the maximum number of overs a single bowler can bowl in a standard 50-over Men's One Day International (ODI) match?",
     "options": {
-      "A": "Thermometer",
-      "B": "Barometer",
-      "C": "Hygrometer",
-      "D": "Anemometer"
+      "A": "8 overs",
+      "B": "10 overs",
+      "C": "12 overs",
+      "D": "15 overs"
     },
     "correctAnswer": "B",
-    "category": "General Knowledge",
+    "category": "Cricket",
     "timeLimit": 30
   },
   {
     "id": 9,
-    "question": "Which country is the largest in the world by land area?",
+    "question": "In standard association football (soccer), how long is a regular match played, excluding extra time and stoppage time?",
     "options": {
-      "A": "Canada",
-      "B": "China",
-      "C": "United States",
-      "D": "Russia"
+      "A": "60 minutes",
+      "B": "80 minutes",
+      "C": "90 minutes",
+      "D": "100 minutes"
     },
-    "correctAnswer": "D",
-    "category": "General Knowledge",
+    "correctAnswer": "C",
+    "category": "Sports",
     "timeLimit": 30
   },
   {
     "id": 10,
-    "question": "What is the speed of light in vacuum approximately?",
+    "question": "In standard lawn tennis, what word is traditionally called out to announce a score of zero?",
     "options": {
-      "A": "300,000 km/s",
-      "B": "150,000 km/s",
-      "C": "500,000 km/s",
-      "D": "1,000,000 km/s"
+      "A": "Nil",
+      "B": "Zero",
+      "C": "Love",
+      "D": "Blank"
+    },
+    "correctAnswer": "C",
+    "category": "Sports",
+    "timeLimit": 30
+  },
+  {
+    "id": 11,
+    "question": "What has hands and a face, but cannot hold anything or smile?",
+    "options": {
+      "A": "A clock",
+      "B": "A mirror",
+      "C": "A coin",
+      "D": "A statue"
     },
     "correctAnswer": "A",
-    "category": "General Knowledge",
+    "category": "Riddles",
+    "timeLimit": 30
+  },
+  {
+    "id": 12,
+    "question": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?",
+    "options": {
+      "A": "$0.10",
+      "B": "$0.05",
+      "C": "$0.01",
+      "D": "$0.15"
+    },
+    "correctAnswer": "B",
+    "category": "Brain Teasers",
+    "timeLimit": 30
+  },
+  {
+    "id": 13,
+    "question": "If yesterday was Tuesday, what day will it be three days after tomorrow?",
+    "options": {
+      "A": "Friday",
+      "B": "Saturday",
+      "C": "Sunday",
+      "D": "Monday"
+    },
+    "correctAnswer": "C",
+    "category": "Logical Thinking",
+    "timeLimit": 30
+  },
+  {
+    "id": 14,
+    "question": "Some months have 30 days, while others have 31 days. How many months have at least 28 days?",
+    "options": {
+      "A": "1 month",
+      "B": "4 months",
+      "C": "7 months",
+      "D": "All 12 months"
+    },
+    "correctAnswer": "D",
+    "category": "Fun Reasoning",
+    "timeLimit": 30
+  },
+  {
+    "id": 15,
+    "question": "You enter a dark cabin with only one match. Inside there is an oil lamp, a candle, and a fireplace. What must you light first?",
+    "options": {
+      "A": "The candle",
+      "B": "The oil lamp",
+      "C": "The match",
+      "D": "The fireplace"
+    },
+    "correctAnswer": "C",
+    "category": "Tricky Reasoning",
+    "timeLimit": 30
+  },
+  {
+    "id": 16,
+    "question": "In C programming, which format specifier is used in printf() to print a standard integer value?",
+    "options": {
+      "A": "%c",
+      "B": "%d",
+      "C": "%f",
+      "D": "%s"
+    },
+    "correctAnswer": "B",
+    "category": "C Programming",
+    "timeLimit": 30
+  },
+  {
+    "id": 17,
+    "question": "Which of the following built-in collection data types in Python is immutable?",
+    "options": {
+      "A": "List",
+      "B": "Dictionary",
+      "C": "Set",
+      "D": "Tuple"
+    },
+    "correctAnswer": "D",
+    "category": "Python",
+    "timeLimit": 30
+  },
+  {
+    "id": 18,
+    "question": "Which keyword in Java is used by a class to inherit from a superclass?",
+    "options": {
+      "A": "implements",
+      "B": "inherits",
+      "C": "extends",
+      "D": "super"
+    },
+    "correctAnswer": "C",
+    "category": "Java",
+    "timeLimit": 30
+  },
+  {
+    "id": 19,
+    "question": "Which data structure follows the First-In, First-Out (FIFO) principle?",
+    "options": {
+      "A": "Stack",
+      "B": "Queue",
+      "C": "Binary Search Tree",
+      "D": "Max Heap"
+    },
+    "correctAnswer": "B",
+    "category": "Data Structures & Algorithms",
+    "timeLimit": 30
+  },
+  {
+    "id": 20,
+    "question": "In Structured Query Language (SQL), which clause is used to filter records in a SELECT query?",
+    "options": {
+      "A": "ORDER BY",
+      "B": "GROUP BY",
+      "C": "WHERE",
+      "D": "HAVING"
+    },
+    "correctAnswer": "C",
+    "category": "DBMS",
+    "timeLimit": 30
+  },
+  {
+    "id": 21,
+    "question": "What is the output of the following C code snippet?\nint arr[] = {10, 20, 30, 40};\nint *p = arr;\nprintf(\"%d\", *(p + 2));",
+    "options": {
+      "A": "10",
+      "B": "20",
+      "C": "30",
+      "D": "40"
+    },
+    "correctAnswer": "C",
+    "category": "C Programming",
+    "timeLimit": 30
+  },
+  {
+    "id": 22,
+    "question": "What is the output of the following Python code snippet?\nnums = [10, 20, 30, 40, 50]\nprint(nums[1:4:2])",
+    "options": {
+      "A": "[20, 30, 40]",
+      "B": "[20, 40]",
+      "C": "[10, 30]",
+      "D": "[20, 50]"
+    },
+    "correctAnswer": "B",
+    "category": "Python",
+    "timeLimit": 30
+  },
+  {
+    "id": 23,
+    "question": "In Java, what is it called when two or more methods in the same class have the same name but different parameter lists?",
+    "options": {
+      "A": "Method Overriding",
+      "B": "Method Overloading",
+      "C": "Dynamic Binding",
+      "D": "Encapsulation"
+    },
+    "correctAnswer": "B",
+    "category": "Java",
+    "timeLimit": 30
+  },
+  {
+    "id": 24,
+    "question": "What is the worst-case time complexity of searching for an element in an unbalanced (skewed) Binary Search Tree with n nodes?",
+    "options": {
+      "A": "O(1)",
+      "B": "O(log n)",
+      "C": "O(n)",
+      "D": "O(n log n)"
+    },
+    "correctAnswer": "C",
+    "category": "Data Structures & Algorithms",
+    "timeLimit": 30
+  },
+  {
+    "id": 25,
+    "question": "Which normal form in relational database design is specifically defined to eliminate transitive functional dependencies?",
+    "options": {
+      "A": "First Normal Form (1NF)",
+      "B": "Second Normal Form (2NF)",
+      "C": "Third Normal Form (3NF)",
+      "D": "Boyce-Codd Normal Form (BCNF)"
+    },
+    "correctAnswer": "C",
+    "category": "DBMS",
+    "timeLimit": 30
+  },
+  {
+    "id": 26,
+    "question": "In C, what is the output of this code on standard systems?\nchar str[] = \"Quiz\";\nprintf(\"%zu %zu\", sizeof(str), strlen(str));",
+    "options": {
+      "A": "4 4",
+      "B": "4 5",
+      "C": "5 4",
+      "D": "8 4"
+    },
+    "correctAnswer": "C",
+    "category": "C Programming",
+    "timeLimit": 30
+  },
+  {
+    "id": 27,
+    "question": "What is the output of the following Python code?\ndef add_item(val, items=[]):\n    items.append(val)\n    return items\n\nprint(add_item(1), add_item(2))",
+    "options": {
+      "A": "[1] [2]",
+      "B": "[1] [1, 2]",
+      "C": "[1, 2] [1, 2]",
+      "D": "[2] [2]"
+    },
+    "correctAnswer": "C",
+    "category": "Python",
+    "timeLimit": 30
+  },
+  {
+    "id": 28,
+    "question": "What is the output of the following Java snippet?\nString s1 = \"Hello\";\nString s2 = new String(\"Hello\");\nSystem.out.print((s1 == s2) + \" \" + s1.equals(s2));",
+    "options": {
+      "A": "true true",
+      "B": "false true",
+      "C": "true false",
+      "D": "false false"
+    },
+    "correctAnswer": "B",
+    "category": "Java",
+    "timeLimit": 30
+  },
+  {
+    "id": 29,
+    "question": "What is the overall time complexity of building a Binary Heap from an unsorted array of n elements using the bottom-up heapify approach?",
+    "options": {
+      "A": "O(n)",
+      "B": "O(log n)",
+      "C": "O(n log n)",
+      "D": "O(n^2)"
+    },
+    "correctAnswer": "A",
+    "category": "Data Structures & Algorithms",
+    "timeLimit": 30
+  },
+  {
+    "id": 30,
+    "question": "In database transaction processing, which ACID property ensures that committed transactions survive system crashes or power failures?",
+    "options": {
+      "A": "Atomicity",
+      "B": "Consistency",
+      "C": "Isolation",
+      "D": "Durability"
+    },
+    "correctAnswer": "D",
+    "category": "DBMS",
     "timeLimit": 30
   }
 ]
