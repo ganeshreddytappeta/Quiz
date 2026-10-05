@@ -2602,13 +2602,13 @@ function sendStaticHtml(res, fallbackFilename, ...candidateNames) {
   }
 }
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 app.get(["/team", "/team.html", "/arena", "/competition"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 app.get("/index.html", (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
   sendStaticHtml(res, "host.html", "public/host.html", "dist/host.html");

@@ -2172,7 +2172,7 @@ function sendStaticHtml(res: express.Response, fallbackFilename: string, ...cand
 
 // Direct routes
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
 app.get(["/team", "/team.html", "/arena", "/competition"], (req, res) => {
@@ -2180,7 +2180,7 @@ app.get(["/team", "/team.html", "/arena", "/competition"], (req, res) => {
 });
 
 app.get("/index.html", (req, res) => {
-  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
+  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
