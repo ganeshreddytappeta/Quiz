@@ -256,7 +256,7 @@ dom.adminLoginForm?.addEventListener("submit", async (e) => {
 
   if (!password) {
     if (dom.adminLoginError) {
-      dom.adminLoginError.textContent = "Please enter admin password 'admin@123'.";
+      dom.adminLoginError.textContent = "Please enter your admin password.";
       dom.adminLoginError.classList.remove("hidden");
     }
     return;
@@ -281,7 +281,7 @@ dom.adminLoginForm?.addEventListener("submit", async (e) => {
       showToast("Admin access granted. Welcome to Dashboard!", "success");
     } else {
       if (dom.adminLoginError) {
-        dom.adminLoginError.textContent = data.message || "Invalid password. Enter 'admin@123'.";
+        dom.adminLoginError.textContent = data.message || "Invalid username or password. Please try again.";
         dom.adminLoginError.classList.remove("hidden");
       }
     }

@@ -40,14 +40,19 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/quiz_arena";
 
 // Admin Credentials Configuration
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.HOST_PASSWORD || "admin@123";
+const ADMIN_USERNAME = "aikyam";
+const ADMIN_PASSWORD = "aikyam2k26";
 const activeAdminTokens = new Set<string>();
 
 export function isValidAdminPassword(pwd?: string): boolean {
   if (!pwd) return false;
   const trimmed = pwd.trim();
-  return trimmed === ADMIN_PASSWORD || trimmed === "admin@123";
+  return (
+    trimmed === "aikyam2k26" ||
+    trimmed === ADMIN_PASSWORD ||
+    (process.env.ADMIN_PASSWORD && trimmed === process.env.ADMIN_PASSWORD.trim()) ||
+    (process.env.HOST_PASSWORD && trimmed === process.env.HOST_PASSWORD.trim())
+  );
 }
 
 // Question Data Structure
@@ -803,6 +808,7 @@ io.on("connection", (socket: Socket) => {
     const isPassValid = isValidAdminPassword(trimmedPassword);
     const isUserValid =
       !trimmedUsername ||
+      trimmedUsername === "aikyam" ||
       trimmedUsername === "admin" ||
       trimmedUsername === ADMIN_USERNAME.toLowerCase();
 
@@ -829,7 +835,7 @@ io.on("connection", (socket: Socket) => {
     } else {
       socket.emit("admin-auth-failed", {
         authenticated: false,
-        message: "Invalid admin password. Please enter password 'admin@123' to access dashboard."
+        message: "Invalid admin credentials. Please try again."
       });
     }
   });
@@ -885,8 +891,8 @@ io.on("connection", (socket: Socket) => {
     const rawCode = (teamCode || "").trim();
 
     // Check if user entered admin credentials at team login
-    const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
-    const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
+    const isTeamAdmin = trimmedName.toLowerCase() === "aikyam" || trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+    const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "aikyam2k26";
 
     if (isTeamAdmin && isPasswordAdmin) {
       const adminToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -1364,6 +1370,7 @@ app.post("/api/admin/login", (req, res) => {
   const isPassValid = isValidAdminPassword(trimmedPassword);
   const isUserValid =
     !trimmedUsername ||
+    trimmedUsername === "aikyam" ||
     trimmedUsername === "admin" ||
     trimmedUsername === ADMIN_USERNAME.toLowerCase();
 
@@ -1379,7 +1386,7 @@ app.post("/api/admin/login", (req, res) => {
   }
   return res.status(401).json({
     success: false,
-    message: "Invalid admin password. Enter password 'admin@123' to log in."
+    message: "Invalid admin credentials. Please try again."
   });
 });
 
@@ -2018,8 +2025,8 @@ app.post("/api/team/login", (req, res) => {
   const trimmedName = (teamName || "").trim();
   const rawCode = (teamCode || "").trim();
 
-  const isTeamAdmin = trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
-  const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "admin@123";
+  const isTeamAdmin = trimmedName.toLowerCase() === "aikyam" || trimmedName.toLowerCase() === "admin" || trimmedName.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+  const isPasswordAdmin = isValidAdminPassword(rawCode) || rawCode === "aikyam2k26";
 
   if (isTeamAdmin && isPasswordAdmin) {
     const adminToken = `adm_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
