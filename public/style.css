@@ -101,7 +101,7 @@ body {
 .brand-main {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   font-weight: 900;
   font-size: 1.25rem;
   letter-spacing: 0.06em;
@@ -109,6 +109,32 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.45));
+}
+
+.brand-logo-img {
+  height: 38px;
+  width: auto;
+  max-width: 52px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.6));
+  flex-shrink: 0;
+}
+
+.hero-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.hero-logo-img {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 35px rgba(0, 240, 255, 0.55)) drop-shadow(0 0 50px rgba(217, 70, 239, 0.35));
+  animation: floatBounce 4s ease-in-out infinite;
 }
 
 .brand-sub-college {
