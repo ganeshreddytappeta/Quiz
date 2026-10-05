@@ -544,7 +544,7 @@ async function startQuiz() {
   if (isMongoConnected) {
     try {
       const newQuiz = await Quiz.create({
-        quizName: "Quiz Arena",
+        quizName: "AIKYAM 2K26 | FUN&TECH",
         status: "running",
         currentQuestion: 1,
         totalQuestions: activeQuestions.length
@@ -2149,15 +2149,15 @@ function sendStaticHtml(res: express.Response, fallbackFilename: string, ...cand
 
 // Direct routes
 app.get("/", (req, res) => {
-  sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
 });
 
-app.get(["/team", "/team.html"], (req, res) => {
+app.get(["/team", "/team.html", "/arena", "/competition"], (req, res) => {
   sendStaticHtml(res, "team.html", "public/team.html", "dist/team.html");
 });
 
 app.get("/index.html", (req, res) => {
-  res.redirect("/");
+  sendStaticHtml(res, "index.html", "public/index.html", "dist/index.html");
 });
 
 app.get(["/admin", "/admin.html", "/host", "/host.html"], (req, res) => {
@@ -2179,7 +2179,8 @@ for (const dir of candidateStaticDirs) {
 
 // Start listening on port 3000
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`QUIZ ARENA server running on port ${PORT}`);
-  console.log(`Team: http://localhost:${PORT}/`);
-  console.log(`Host: http://localhost:${PORT}/host.html`);
+  console.log(`AIKYAM 2K26 | FUN&TECH server running on port ${PORT}`);
+  console.log(`Event Home: http://localhost:${PORT}/`);
+  console.log(`Competition Arena: http://localhost:${PORT}/team.html`);
+  console.log(`Host & Projector: http://localhost:${PORT}/host.html`);
 });

@@ -1,6 +1,6 @@
 {
   "name": "QUIZ ARENA",
-  "description": "Real-time multiplayer quiz application for 10 teams with password-protected admin portal, dynamic question manager, live host projector, manual admin-controlled navigation, and instant rankings.",
+  "description": "AIKYAM 2K26 | FUN&TECH - Official interactive technology competition platform for Department of CSIT, Sagi Rama Krishnam Raju Engineering College (A). Real-time multiplayer competition arena, live host projector, manual progression, and instant rankings.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

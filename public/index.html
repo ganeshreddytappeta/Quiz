@@ -3,83 +3,432 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QUIZ ARENA - Real-Time Multiplayer Quiz Competition</title>
-  <meta name="description" content="QUIZ ARENA - 10 Teams, 1 Champion. Real-time multiplayer quiz competition with live host dashboard and instant rankings.">
+  <title>AIKYAM 2K26 | FUN&TECH - SRKR Engineering College (A) CSIT</title>
+  <meta name="description" content="AIKYAM 2K26 | FUN&TECH - Official interactive technology competition organized by the Department of CSIT, Sagi Rama Krishnam Raju Engineering College (A). Explore, Build, Compete, Have Fun.">
+  <meta property="og:title" content="AIKYAM 2K26 | FUN&TECH">
+  <meta property="og:description" content="Sagi Rama Krishnam Raju Engineering College (A) - Department of CSIT. Explore • Build • Compete • Have Fun. 7th October 2026.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-  <!-- Top Navigation -->
-  <nav class="app-navbar" id="mainNavbar">
-    <a href="/" class="brand-title" id="brandLogo">
-      <span>🏆</span> QUIZ ARENA
-      <span class="brand-badge">COMPETITION</span>
+  <!-- Top Navigation & Header -->
+  <header class="app-navbar" id="mainNavbar">
+    <a href="/" class="brand-block" title="AIKYAM 2K26 | FUN&TECH">
+      <div class="brand-main">
+        <span class="brand-icon">⚡</span>
+        <span>AIKYAM 2K26 | FUN&TECH</span>
+      </div>
+      <div class="brand-sub-college">SAGI RAMA KRISHNAM RAJU ENGINEERING COLLEGE (A)</div>
+      <div class="brand-sub-dept">DEPARTMENT OF CSIT</div>
     </a>
-    <div class="nav-links">
-      <a href="/team.html" class="nav-btn nav-btn-highlight" id="navTeamBtn">📱 Team Login</a>
+    
+    <nav class="nav-links">
+      <a href="#challenges" class="nav-btn">🎯 Challenges</a>
+      <a href="#rules" class="nav-btn">📜 Rules</a>
+      <a href="#schedule" class="nav-btn">📅 Schedule</a>
+      <a href="#leaderboard" class="nav-btn">🏆 Leaderboard</a>
+      <a href="/team.html" class="nav-btn nav-btn-highlight" id="navTeamBtn">🚀 Enter Arena</a>
       <a href="/admin.html" class="nav-btn" id="navAdminBtn">🔐 Admin Portal</a>
-    </div>
-  </nav>
+    </nav>
+  </header>
 
   <!-- Main Container -->
   <main class="page-container">
-    <div class="hero-section fade-in">
-      <div class="hero-trophy">🏆</div>
-      <h1 class="hero-title">QUIZ ARENA</h1>
-      <div class="hero-motto">Think • Answer • Win Together</div>
-      
-      <div class="hero-stats-pill">
-        <span>⚡ 10 Teams</span>
-        <span>•</span>
-        <span>👑 1 Champion</span>
-        <span>•</span>
-        <span>🔐 Protected Admin & Question Bank</span>
+
+    <!-- HERO SECTION -->
+    <section class="hero-section fade-in">
+      <div class="hero-college-badge">
+        <span class="hero-college-name">Sagi Rama Krishnam Raju Engineering College (A)</span>
+        <span class="hero-dept-name">Department of Computer Science & Information Technology (CSIT)</span>
       </div>
 
+      <div class="hero-stats-pill">
+        <span>🌐 AIKYAM 2K26</span>
+        <span>•</span>
+        <span>🚀 TECH & INNOVATION FESTIVAL</span>
+      </div>
+
+      <h1 class="hero-title">AIKYAM 2K26</h1>
+      <div class="hero-fun-tech">FUN&TECH</div>
+
+      <div class="hero-motto">"Explore • Build • Compete • Have Fun"</div>
+      <div class="hero-submotto">"Together Towards a Brighter Tomorrow..."</div>
+
       <p class="hero-tagline">
-        Welcome to the ultimate real-time arena. Test your speed, accuracy, and team synergy in a head-to-head live competition powered by authoritative real-time synchronization.
+        Welcome to the official <strong>FUN&TECH</strong> battleground under <strong>AIKYAM 2K26</strong>. 
+        Engage your analytical mind, test your programming prowess, conquer real-world riddles, and collaborate in an electrified, real-time multiplayer arena.
       </p>
 
       <div class="hero-actions">
         <a href="/team.html" class="btn-primary" id="joinQuizBtn" style="font-size: 1.15rem; padding: 1rem 2.25rem;">
-          🚀 Join Quiz Now
+          🚀 Enter Competition Arena
+        </a>
+        <a href="#challenges" class="btn-secondary" style="font-size: 1.15rem; padding: 1rem 2rem;">
+          🎯 View Challenges
         </a>
         <a href="/admin.html" class="btn-secondary" id="hostArenaBtn" style="font-size: 1.15rem; padding: 1rem 2rem;">
-          🔐 Admin Portal & Questions
+          🔐 Host & Admin Projector
         </a>
       </div>
-    </div>
 
-    <!-- Feature Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 2rem;">
-      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
-        <div style="font-size: 2rem; margin-bottom: 0.5rem;">👑</div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Admin-Controlled Navigation</h3>
-        <p style="color: var(--text-dim); font-size: 0.9rem;">
-          No automatic timers or unexpected switches. The host controls question reveals, answer verification, and transitions manually.
+      <!-- EVENT CONTEXT CARDS -->
+      <div class="event-meta-grid">
+        <div class="event-meta-card">
+          <div class="event-meta-icon">🗓️</div>
+          <div class="event-meta-label">Date & Time</div>
+          <div class="event-meta-val">7th October 2026</div>
+          <div class="event-meta-sub">9:00 AM – 3:00 PM IST</div>
+        </div>
+
+        <div class="event-meta-card">
+          <div class="event-meta-icon">📍</div>
+          <div class="event-meta-label">Venue</div>
+          <div class="event-meta-val">Tech Center, Idealab</div>
+          <div class="event-meta-sub">2nd Floor, Campus Complex</div>
+        </div>
+
+        <div class="event-meta-card">
+          <div class="event-meta-icon">💰</div>
+          <div class="event-meta-label">Registration Fee</div>
+          <div class="event-meta-val">₹60/- Only</div>
+          <div class="event-meta-sub">Affordable team access fee</div>
+        </div>
+
+        <div class="event-meta-card">
+          <div class="event-meta-icon">🎓</div>
+          <div class="event-meta-label">Eligibility</div>
+          <div class="event-meta-val">2nd / 4th B.Tech</div>
+          <div class="event-meta-sub">CSIT-A Students</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: FUN & TECH CHALLENGES -->
+    <section id="challenges" style="margin-top: 2rem;">
+      <div class="section-header-block">
+        <span class="section-tag">Interactive Arena</span>
+        <h2 class="section-title">Fun & Tech Challenges</h2>
+        <p class="section-desc">
+          Divided into two distinct, high-intensity rounds testing mental speed, out-of-the-box creativity, and deep technical comprehension.
         </p>
       </div>
 
-      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
-        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📊</div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Real-Time Host Dashboard</h3>
-        <p style="color: var(--text-dim); font-size: 0.9rem;">
-          Host views live team submissions as they happen without refreshing. Inspect team status, reveal answers, and control every round.
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        
+        <!-- Round 1 Card -->
+        <div class="circuit-card">
+          <div class="circuit-corner corner-tl"></div>
+          <div class="circuit-corner corner-tr"></div>
+          <div class="circuit-corner corner-bl"></div>
+          <div class="circuit-corner corner-br"></div>
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <span style="font-size: 2.2rem;">🧩</span>
+            <span class="brand-badge" style="background: rgba(236, 72, 153, 0.2); border-color: rgba(236, 72, 153, 0.4); color: #f472b6;">QUESTIONS 1 – 15</span>
+          </div>
+
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+            Round 1: Fun, Logic & Sports
+          </h3>
+          <p style="color: var(--text-dim); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">
+            A high-energy, completely non-technical sprint designed to ignite brain power, quick reflexes, and teamwork.
+          </p>
+
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #00f0ff;">⚡</span> <strong>Riddles & Mind Teasers:</strong> Everyday logic puzzles and cognitive challenges.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #00f0ff;">🏏</span> <strong>Cricket & Sports Trivia:</strong> Knowledge tests from cricket arenas and world athletics.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #00f0ff;">🔍</span> <strong>Observation & Pattern Math:</strong> Visual deduction, sequence tracing, and quick calculations.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Round 2 Card -->
+        <div class="circuit-card">
+          <div class="circuit-corner corner-tl"></div>
+          <div class="circuit-corner corner-tr"></div>
+          <div class="circuit-corner corner-bl"></div>
+          <div class="circuit-corner corner-br"></div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <span style="font-size: 2.2rem;">💻</span>
+            <span class="brand-badge" style="background: rgba(0, 240, 255, 0.2); border-color: rgba(0, 240, 255, 0.4); color: #00f0ff;">QUESTIONS 16 – 30</span>
+          </div>
+
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+            Round 2: Technical Mastery
+          </h3>
+          <p style="color: var(--text-dim); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">
+            An engineering deep dive crafted for CSIT innovators to test algorithmic dexterity and core computer science fundamentals.
+          </p>
+
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #a855f7;">🤖</span> <strong>Programming Logic:</strong> Output prediction & subtleties in C, Python, and Java.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #a855f7;">⚡</span> <strong>Data Structures & Algorithms:</strong> Heaps, trees, search complexities, and pointer logic.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #a855f7;">🗄️</span> <strong>DBMS & System Architecture:</strong> ACID guarantees, relational indexing, and normalization.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Tech Arena Architecture Card -->
+        <div class="circuit-card">
+          <div class="circuit-corner corner-tl"></div>
+          <div class="circuit-corner corner-tr"></div>
+          <div class="circuit-corner corner-bl"></div>
+          <div class="circuit-corner corner-br"></div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <span style="font-size: 2.2rem;">🎮</span>
+            <span class="brand-badge" style="background: rgba(168, 85, 247, 0.2); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;">LIVE ENGINE</span>
+          </div>
+
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+            Real-Time Live Synchronization
+          </h3>
+          <p style="color: var(--text-dim); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">
+            Authoritative, low-latency Socket engine broadcasting real-time team lock-ins, host controls, and instant auditorium projector display.
+          </p>
+
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #10b981;">🛡️</span> <strong>Authoritative Lock:</strong> Single submit prevention with zero client tampering.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #10b981;">👑</span> <strong>Admin-Paced Progression:</strong> Live host advances each challenge strategically.
+            </li>
+            <li style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="color: #10b981;">🥇</span> <strong>Instant Podium:</strong> Dynamic scoreboard calculation with tie-break metrics.
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 2: RULES & INSTRUCTIONS -->
+    <section id="rules" style="margin-top: 4rem;">
+      <div class="section-header-block">
+        <span class="section-tag">Guidelines</span>
+        <h2 class="section-title">Rules & Instructions</h2>
+        <p class="section-desc">
+          Official competition protocol for all participating teams in AIKYAM 2K26 | FUN&TECH.
         </p>
       </div>
 
-      <div class="card-glass" style="padding: 1.5rem; text-align: left;">
-        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🥇</div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Instant Leaderboard & Podium</h3>
-        <p style="color: var(--text-dim); font-size: 0.9rem;">
-          Scores are updated dynamically. At the end of the match, an Olympic-style top 3 podium and full rankings are presented.
+      <div class="card-glass" style="max-width: 900px; margin: 0 auto;">
+        <ul class="rules-list">
+          <li>
+            <span class="rule-icon">👥</span>
+            <div>
+              <strong>Team Structure:</strong>
+              Registered teams from 2nd and 4th B.Tech CSIT-A compete collaboratively using a single dedicated portal device.
+            </div>
+          </li>
+          <li>
+            <span class="rule-icon">🎯</span>
+            <div>
+              <strong>30 MCQ Challenges:</strong>
+              The battle consists of exactly 30 questions (15 Non-Technical/Fun + 15 Technical). Each question has 4 choices (A, B, C, D).
+            </div>
+          </li>
+          <li>
+            <span class="rule-icon">⭐</span>
+            <div>
+              <strong>Scoring Formula:</strong>
+              Each correct answer awards <strong>+1 point</strong>. There is no negative marking; unsubmitted questions earn <strong>0 points</strong>.
+            </div>
+          </li>
+          <li>
+            <span class="rule-icon">🔒</span>
+            <div>
+              <strong>Decision Lock-In:</strong>
+              Once an option is chosen and submitted, it is immediately locked in for that round. Confer with your team before confirming!
+            </div>
+          </li>
+          <li>
+            <span class="rule-icon">👑</span>
+            <div>
+              <strong>Host Controlled Progression:</strong>
+              There are no erratic countdown timers. The competition moves forward under host coordination to ensure an equitable playing field.
+            </div>
+          </li>
+          <li>
+            <span class="rule-icon">🤝</span>
+            <div>
+              <strong>Fair Play & Ethics:</strong>
+              External unauthorized lookups, multi-tab bypasses, or device disruptions result in disqualification. Maintain academic and competitive integrity.
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SECTION 3: EVENT SCHEDULE -->
+    <section id="schedule" style="margin-top: 4rem;">
+      <div class="section-header-block">
+        <span class="section-tag">Event Timeline</span>
+        <h2 class="section-title">Schedule of Events</h2>
+        <p class="section-desc">
+          7th October 2026 • Tech Center, Idealab, 2nd Floor
         </p>
       </div>
-    </div>
+
+      <div class="timeline-list">
+        <div class="timeline-item">
+          <div class="timeline-time">09:00 AM – 09:30 AM</div>
+          <div class="timeline-content">
+            <h4>Check-in & Team Registration Verification</h4>
+            <p>Teams report at Tech Center, Idealab 2nd Floor, receive device stations, and verify access keys.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-time">09:30 AM – 10:00 AM</div>
+          <div class="timeline-content">
+            <h4>Inauguration & AIKYAM 2K26 Keynote</h4>
+            <p>Welcome address by Department of CSIT faculty and student coordinators, overview of the FUN&TECH format.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-time">10:00 AM – 11:30 AM</div>
+          <div class="timeline-content">
+            <h4>Round 1: Fun, Logic & Sports Arena</h4>
+            <p>15 interactive brain-teasers, sports and cricket trivia, visual sequences, and lateral reasoning.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-time">11:30 AM – 12:15 PM</div>
+          <div class="timeline-content">
+            <h4>Tech Showcase & Mid-Event Refreshment</h4>
+            <p>Interactive student projects demonstration, informal tech chit-chat, and quick energizing snacks.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-time">12:15 PM – 01:45 PM</div>
+          <div class="timeline-content">
+            <h4>Round 2: Technical Mastery Conundrum</h4>
+            <p>15 high-stakes technical questions spanning C, Python, Java, Data Structures, Algorithms, and DBMS.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-time">02:00 PM – 03:00 PM</div>
+          <div class="timeline-content">
+            <h4>Live Grand Leaderboard Reveal & Prize Distribution</h4>
+            <p>Auditorium projector reveal of champion teams, podium ceremony, certificates, and trophy celebration.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: REGISTRATION & QUICK PASSCODE ACCESS -->
+    <section id="registration" style="margin-top: 4rem;">
+      <div class="section-header-block">
+        <span class="section-tag">Participant Portal</span>
+        <h2 class="section-title">Arena Access & Registration</h2>
+        <p class="section-desc">
+          Ready to compete? Enter your designated team access code to launch directly into the competition portal.
+        </p>
+      </div>
+
+      <div class="card-glass" style="max-width: 600px; margin: 0 auto; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.75rem;">⚡</div>
+        <h3 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 0.35rem;">
+          Quick Team Arena Entry
+        </h3>
+        <p style="color: var(--text-dim); font-size: 0.95rem; margin-bottom: 1.5rem;">
+          Registration: <strong>₹60/-</strong> • Eligibility: <strong>2nd / 4th B.Tech CSIT-A</strong>
+        </p>
+
+        <form id="quickJoinForm" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <input 
+            type="text" 
+            id="quickCodeInput" 
+            class="form-input" 
+            placeholder="Enter Team Access Key (e.g. T1A7)" 
+            style="flex: 1; min-width: 220px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;"
+          />
+          <button type="submit" class="btn-primary" style="padding: 0.85rem 1.75rem;">
+            🚀 Enter Arena
+          </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8;">
+          Already registered? <a href="/team.html" style="color: #00f0ff; text-decoration: underline; font-weight: 700;">Open Full Participant Arena</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: LIVE LEADERBOARD PREVIEW -->
+    <section id="leaderboard" style="margin-top: 4rem;">
+      <div class="section-header-block">
+        <span class="section-tag">Live Standings</span>
+        <h2 class="section-title">Tournament Leaderboard</h2>
+        <p class="section-desc">
+          Real-time score table dynamically computed during AIKYAM 2K26 | FUN&TECH.
+        </p>
+      </div>
+
+      <div class="card-glass" style="max-width: 850px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff;">
+            🏆 Current Team Standings
+          </h3>
+          <button class="nav-btn" id="refreshLeaderboardBtn" type="button" style="cursor: pointer;">
+            🔄 Refresh Standings
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table class="live-table" id="indexLeaderboardTable">
+            <thead>
+              <tr>
+                <th style="width: 70px;">Rank</th>
+                <th>Team Name</th>
+                <th style="width: 140px; text-align: center;">Correct Answers</th>
+                <th style="width: 130px; text-align: center;">Total Points</th>
+              </tr>
+            </thead>
+            <tbody id="indexLeaderboardBody">
+              <tr>
+                <td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">
+                  Loading live tournament standings...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <footer style="text-align: center; padding: 1.5rem; color: var(--color-muted); font-size: 0.85rem; border-top: 1px solid var(--border-subtle); margin-top: auto;">
-    QUIZ ARENA • Real-Time Competition System • Think • Answer • Win Together
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 2.5rem 1.5rem; color: var(--color-muted); font-size: 0.9rem; border-top: 1px solid rgba(0, 240, 255, 0.2); margin-top: 4rem; background: rgba(5, 8, 20, 0.95);">
+    <div style="font-weight: 900; color: #00f0ff; font-size: 1.15rem; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+      AIKYAM 2K26 | FUN&TECH
+    </div>
+    <div style="font-weight: 700; color: #f8fafc; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.15rem;">
+      Sagi Rama Krishnam Raju Engineering College (A)
+    </div>
+    <div style="font-weight: 800; color: #38bdf8; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.75rem;">
+      Department of CSIT
+    </div>
+    <div style="font-style: italic; color: #c7d2fe; font-size: 0.9rem;">
+      "Together Towards a Brighter Tomorrow..."
+    </div>
   </footer>
 
   <script src="/script.js"></script>

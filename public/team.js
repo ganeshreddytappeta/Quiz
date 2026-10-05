@@ -1,4 +1,4 @@
-// QUIZ ARENA - Team Client Script
+// AIKYAM 2K26 | FUN&TECH - Team Client Script
 // Handles state transitions, Socket.IO communication, and answer submissions
 
 let activeTeamsList = [
@@ -121,7 +121,7 @@ function initSocket() {
   });
 
   socket.on("connect", () => {
-    console.log("Connected to QUIZ ARENA server via Socket.IO:", socket.id);
+    console.log("Connected to AIKYAM 2K26 | FUN&TECH server via Socket.IO:", socket.id);
     // Check if previously logged in (check both sessionStorage and localStorage)
     const storedTeam = sessionStorage.getItem("quiz_team_name") || localStorage.getItem("quiz_team_name");
     const storedToken = sessionStorage.getItem("quiz_session_token") || localStorage.getItem("quiz_session_token");

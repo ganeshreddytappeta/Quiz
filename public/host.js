@@ -1,4 +1,4 @@
-// QUIZ ARENA - Admin Dashboard & Live Projector Script
+// AIKYAM 2K26 | FUN&TECH - Admin Dashboard & Live Projector Script
 // Features: Admin Authentication Gate, Live Host Controls, Question CRUD Manager, Team Session Management
 
 let socket = null;

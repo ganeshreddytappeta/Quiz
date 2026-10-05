@@ -3,40 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QUIZ ARENA - Team Arena</title>
-  <meta name="description" content="Team competition client for QUIZ ARENA">
+  <title>AIKYAM 2K26 | FUN&TECH - Competition Arena</title>
+  <meta name="description" content="AIKYAM 2K26 | FUN&TECH - Interactive Competition Arena, Department of CSIT, Sagi Rama Krishnam Raju Engineering College (A)">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-  <!-- Top Navbar -->
-  <nav class="app-navbar">
-    <a href="/" class="brand-title">
-      <span>🏆</span> QUIZ ARENA
-      <span class="brand-badge" id="navTeamStatusBadge">TEAM ARENA</span>
+  <!-- Top Navbar & Header Branding -->
+  <header class="app-navbar">
+    <a href="/" class="brand-block" title="AIKYAM 2K26 | FUN&TECH">
+      <div class="brand-main">
+        <span class="brand-icon">⚡</span>
+        <span>AIKYAM 2K26 | FUN&TECH</span>
+      </div>
+      <div class="brand-sub-college">SAGI RAMA KRISHNAM RAJU ENGINEERING COLLEGE (A)</div>
+      <div class="brand-sub-dept">DEPARTMENT OF CSIT</div>
     </a>
+    
     <div class="nav-links">
-      <span id="currentTeamDisplay" style="font-weight: 700; color: #a5b4fc; font-size: 0.9rem; display: none;"></span>
-      <button class="btn-danger hidden" id="teamLogoutTopBtn" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">Logout</button>
+      <a href="/" class="nav-btn" title="Back to Event Home">🏠 Event Home</a>
+      <span class="brand-badge" id="navTeamStatusBadge">COMPETITION ARENA</span>
+      <span id="currentTeamDisplay" style="font-weight: 700; color: #00f0ff; font-size: 0.9rem; display: none;"></span>
+      <button class="btn-danger hidden" id="teamLogoutTopBtn" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;">Exit Arena</button>
     </div>
-  </nav>
+  </header>
 
   <main class="page-container">
 
     <!-- ====================================================================
-         VIEW 1: SCREEN 2 - TEAM LOGIN PAGE
+         VIEW 1: ARENA ACCESS & AUTHENTICATION (rebranded from Team Login)
          ==================================================================== -->
     <div class="auth-wrapper fade-in" id="viewLogin">
       <div class="card-glass">
         <div class="auth-header">
-          <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📱</div>
-          <h2>Team Login</h2>
-          <p>Enter your team details to join the quiz</p>
+          <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">🚀</div>
+          <h2 style="font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 0.35rem;">
+            Competition Arena Access
+          </h2>
+          <p style="color: var(--text-dim); font-size: 0.95rem;">
+            Enter your team credentials to participate in <strong>AIKYAM 2K26 | FUN&TECH</strong>
+          </p>
         </div>
 
         <form id="teamLoginForm">
           <div class="form-group">
-            <label class="form-label" for="teamNameInput">Team Name</label>
+            <label class="form-label" for="teamNameInput">Team / Participant Name</label>
             <input 
               type="text" 
               class="form-input" 
@@ -48,36 +59,40 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="teamCodeInput">Team Access Code / Password</label>
+            <label class="form-label" for="teamCodeInput">Team Access Key / Passcode</label>
             <input 
               type="text" 
               class="form-input" 
               id="teamCodeInput" 
-              placeholder="e.g. T1A7 or password" 
+              placeholder="e.g. T1A7 or access code" 
               required
               autocomplete="off"
-              style="letter-spacing: 0.05em; font-weight: 600;"
+              style="letter-spacing: 0.08em; font-weight: 700;"
             >
           </div>
 
-          <div id="loginStatusFeedback" class="hidden" style="margin-top: 0.75rem; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; text-align: center; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe;"></div>
+          <div id="loginStatusFeedback" class="hidden" style="margin-top: 0.75rem; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; text-align: center; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); color: #c7d2fe;"></div>
 
           <button type="submit" class="btn-primary" id="loginSubmitBtn" style="width: 100%; margin-top: 0.5rem;">
-            Login & Join Quiz
+            🚀 Enter Competition Arena
           </button>
         </form>
+
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.82rem; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1rem;">
+          Tech Center, Idealab, 2nd Floor • 7th October 2026
+        </div>
       </div>
     </div>
 
     <!-- ====================================================================
-         VIEW 2: SCREEN 3 - INVALID LOGIN
+         VIEW 2: INVALID CREDENTIALS
          ==================================================================== -->
     <div class="auth-wrapper hidden fade-in" id="viewInvalidLogin">
       <div class="card-glass error-card">
         <div class="error-icon">⚠️</div>
-        <h2 class="error-title" id="invalidErrorTitle">Invalid Code</h2>
+        <h2 class="error-title" id="invalidErrorTitle">Invalid Access Key</h2>
         <p class="error-desc" id="invalidErrorMessage">
-          The team name or code is incorrect. Please try again.
+          The team name or access code is incorrect. Please check your credentials and try again.
         </p>
         <button class="btn-primary" id="tryAgainBtn">
           🔄 Try Again
@@ -86,7 +101,7 @@
     </div>
 
     <!-- ====================================================================
-         VIEW 3: SCREEN 4 - WAITING ROOM
+         VIEW 3: WAITING ROOM / LOBBY
          ==================================================================== -->
     <div class="auth-wrapper hidden fade-in" id="viewWaitingRoom">
       <div class="card-glass waiting-card">
@@ -95,72 +110,72 @@
         </div>
         
         <div class="hero-stats-pill" style="margin-bottom: 0.75rem;">
-          QUIZ ARENA
+          AIKYAM 2K26 • FUN&TECH
         </div>
 
-        <h2 class="waiting-title">Waiting for the Quiz to Start...</h2>
+        <h2 class="waiting-title">Waiting for the Competition to Launch...</h2>
         <div class="waiting-subtitle" id="waitingTeamTitle">Team Name</div>
         <p class="waiting-note" style="margin-bottom: 0.5rem; font-size: 1.05rem; color: #e2e8f0; font-weight: 600;">
-          Get ready! The quiz will begin soon.
+          Get ready! The challenge rounds will begin shortly.
         </p>
         <p class="waiting-note" style="margin-bottom: 2rem;">
-          Stay on this page. When the host starts the quiz, you will automatically transition.
+          Stay connected on this page. When the host initiates the round, your screen will automatically advance.
         </p>
 
         <div style="display: flex; gap: 0.75rem; justify-content: center;">
           <button class="btn-danger" id="waitingLogoutBtn">
-            🚪 Logout
+            🚪 Exit Arena
           </button>
         </div>
       </div>
     </div>
 
     <!-- ====================================================================
-         VIEW 4: SCREEN 5 - QUIZ INSTRUCTIONS
+         VIEW 4: COMPETITION INSTRUCTIONS & RULES
          ==================================================================== -->
     <div class="instructions-card hidden fade-in" id="viewInstructions">
       <div class="card-glass">
         <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📋</div>
-        <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem;">
-          Quiz Instructions
+        <h2 style="font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 0.25rem;">
+          AIKYAM 2K26 | FUN&TECH Rules
         </h2>
         <p style="color: var(--text-dim); font-size: 0.95rem;">
-          Read carefully before the competition begins:
+          Please review the competition guidelines before the round begins:
         </p>
 
         <ul class="rules-list">
           <li>
             <span class="rule-icon">🔘</span>
-            <div><strong>4 Options (A, B, C, D):</strong> Each question will present 4 choices. Select the single best answer.</div>
+            <div><strong>4 Options (A, B, C, D):</strong> Each challenge provides 4 possible options. Select the single best answer.</div>
           </li>
           <li>
             <span class="rule-icon">🎯</span>
-            <div><strong>Scoring:</strong> Correct answer awards <strong>+1 point</strong>. Wrong or unsubmitted answers get <strong>0 points</strong>.</div>
+            <div><strong>Scoring:</strong> Correct answers award <strong>+1 point</strong>. Incorrect or unsubmitted answers receive <strong>0 points</strong>.</div>
           </li>
           <li>
             <span class="rule-icon">👑</span>
-            <div><strong>Admin Controlled Pace:</strong> There is no question timer. Take your time to think and submit. The admin advances questions.</div>
+            <div><strong>Host-Paced Progression:</strong> Challenges are advanced synchronously by the host. Strategize and confirm your answer before submission.</div>
           </li>
           <li>
             <span class="rule-icon">🔒</span>
-            <div><strong>Lock-In:</strong> Once you submit your answer, your selection is locked for that question.</div>
+            <div><strong>Lock-In Guarantee:</strong> Once your choice is submitted, it is authoritatively locked for that challenge.</div>
           </li>
           <li>
             <span class="rule-icon">🤝</span>
-            <div><strong>Fair Play:</strong> Be fair, compete with honor, and enjoy the arena!</div>
+            <div><strong>Fair Play:</strong> Compete with integrity, showcase your talent, and have fun!</div>
           </li>
         </ul>
 
         <div class="countdown-box" style="padding: 1rem;">
-          <p style="font-size: 1.05rem; color: #c7d2fe; font-weight: 700; margin-bottom: 0;">
-            🚀 The host will launch the first question shortly!
+          <p style="font-size: 1.05rem; color: #00f0ff; font-weight: 700; margin-bottom: 0;">
+            🚀 The host will launch the first challenge shortly!
           </p>
         </div>
       </div>
     </div>
 
     <!-- ====================================================================
-         VIEW 5: SCREEN 6 - QUESTION SCREEN FOR TEAMS
+         VIEW 5: LIVE QUESTION SCREEN FOR TEAMS
          ==================================================================== -->
     <div class="question-view-wrapper hidden fade-in" id="viewQuestion">
       <!-- Top info bar -->
@@ -169,14 +184,14 @@
           <span>🛡️</span>
           <span id="questionTeamName">Team 1</span>
         </div>
-        <div class="timer-indicator" id="questionRoundBadge" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; font-weight: 700; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 8px;">
+        <div class="timer-indicator" id="questionRoundBadge" style="background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); color: #00f0ff; font-weight: 800; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 8px;">
           <span>🎯</span>
-          <span>Live Round</span>
+          <span>AIKYAM 2K26 Live Challenge</span>
         </div>
       </div>
 
       <div class="card-glass">
-        <div class="question-meta" id="questionNumberMeta">Question 1 of 10</div>
+        <div class="question-meta" id="questionNumberMeta">Question 1 of 30</div>
         <h2 class="question-text" id="questionText">
           Loading question...
         </h2>
@@ -201,11 +216,11 @@
           </button>
         </div>
 
-        <!-- Answer Submitted Confirmation Card -->
+        <!-- Answer Submitted Confirmation Card (Without tick mark) -->
         <div class="submission-card hidden" id="submissionFeedbackCard">
           <h3 class="submission-title">Answer Submitted!</h3>
           <p class="submission-detail">
-            You selected: <strong id="submittedOptionLabel">B. New Delhi</strong>
+            You selected: <strong id="submittedOptionLabel">Option</strong>
           </p>
           <p class="submission-waiting" style="margin-top: 1rem; font-size: 1rem; color: #93c5fd;">
             ⏳ Waiting for the admin to advance to the next question...
@@ -215,29 +230,29 @@
     </div>
 
     <!-- ====================================================================
-         VIEW 6: SCREEN 8 - NEXT QUESTION TRANSITION
+         VIEW 6: NEXT QUESTION TRANSITION
          ==================================================================== -->
     <div class="auth-wrapper hidden fade-in" id="viewTransition">
       <div class="card-glass waiting-card">
         <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">⏭️</div>
         <h2 class="waiting-title" style="margin-bottom: 0.5rem;" id="transitionHeading">Get Ready!</h2>
         <p class="waiting-note" id="transitionSubtext" style="font-size: 1.1rem; color: #e2e8f0; margin-top: 1rem;">
-          The admin will launch the next question shortly.
+          The host will launch the next challenge shortly.
         </p>
       </div>
     </div>
 
     <!-- ====================================================================
-         VIEW 7: FINAL SCOREBOARD & LOGOUT SCREEN
+         VIEW 7: FINAL SCOREBOARD & WINNER PODIUM
          ==================================================================== -->
     <div class="scoreboard-container hidden fade-in" id="viewFinalScoreboard">
       
       <!-- Winner Banner -->
       <div class="winner-banner">
         <div class="winner-crown">👑</div>
-        <div class="winner-subtitle">QUIZ ARENA CHAMPION</div>
-        <h1 class="winner-name" id="winnerTeamName">Team 4</h1>
-        <p class="winner-tagline">CONGRATULATIONS! Quiz Champions of the Arena!</p>
+        <div class="winner-subtitle">AIKYAM 2K26 • FUN&TECH CHAMPION</div>
+        <h1 class="winner-name" id="winnerTeamName">Team 1</h1>
+        <p class="winner-tagline">CONGRATULATIONS! AIKYAM 2K26 FUN&TECH TOURNAMENT CHAMPIONS!</p>
       </div>
 
       <!-- Top 3 Podium -->
@@ -248,7 +263,7 @@
       <!-- Full Table -->
       <div class="card-glass" style="margin-bottom: 2rem; text-align: left;">
         <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 1rem;">
-          🏆 Final Scoreboard
+          🏆 Tournament Standings
         </h3>
         <div class="table-container">
           <table class="live-table" id="finalScoreboardTable">
@@ -267,20 +282,23 @@
         </div>
       </div>
 
-      <!-- Participation & Logout Card -->
+      <!-- Participation & Acknowledgement Card -->
       <div class="card-glass" style="text-align: center; padding: 2.5rem 1.5rem;">
         <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎉</div>
-        <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
-          Thank You!
+        <h2 style="font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 0.5rem;">
+          Thank You for Participating!
         </h2>
         <p style="color: var(--text-dim); font-size: 1.05rem; margin-bottom: 1.5rem;">
-          Thanks for participating in <strong>QUIZ ARENA</strong>.
+          Thanks for participating in <strong>AIKYAM 2K26 | FUN&TECH</strong>.<br>
+          <span style="font-size: 0.9rem; color: #94a3b8;">
+            Sagi Rama Krishnam Raju Engineering College (A) • Department of CSIT
+          </span>
         </p>
         <button class="btn-primary" id="finalLogoutBtn" style="padding: 0.85rem 2rem; margin-bottom: 1.25rem;">
-          🚪 Logout
+          🚪 Exit Arena
         </button>
-        <p style="color: #a5b4fc; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em;">
-          "Keep Learning, Keep Growing!"
+        <p style="color: #00f0ff; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em;">
+          "Together Towards a Brighter Tomorrow..."
         </p>
       </div>
     </div>

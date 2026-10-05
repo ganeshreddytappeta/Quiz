@@ -3,27 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QUIZ ARENA - Admin Portal & Question Manager</title>
-  <meta name="description" content="Admin portal, quiz controller, and question management for QUIZ ARENA">
+  <title>AIKYAM 2K26 | FUN&TECH - Admin Portal & Projector</title>
+  <meta name="description" content="AIKYAM 2K26 | FUN&TECH - Admin portal, competition controller, and live projector for Sagi Rama Krishnam Raju Engineering College (A), Department of CSIT">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
   <!-- Top Navbar -->
-  <nav class="app-navbar">
-    <a href="/" class="brand-title">
-      <span>👑</span> QUIZ ARENA
-      <span class="brand-badge" style="background: linear-gradient(135deg, #f59e0b, #d97706);">ADMIN PORTAL</span>
+  <header class="app-navbar">
+    <a href="/" class="brand-block" title="AIKYAM 2K26 | FUN&TECH">
+      <div class="brand-main">
+        <span class="brand-icon">⚡</span>
+        <span>AIKYAM 2K26 | FUN&TECH</span>
+      </div>
+      <div class="brand-sub-college">SAGI RAMA KRISHNAM RAJU ENGINEERING COLLEGE (A)</div>
+      <div class="brand-sub-dept">DEPARTMENT OF CSIT</div>
     </a>
     <div class="nav-links">
+      <span class="brand-badge" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.3)); border-color: #f59e0b; color: #f59e0b;">ADMIN PORTAL</span>
       <div class="host-live-badge" id="adminLiveBadge">
         <span class="live-dot"></span> LIVE BROADCAST
       </div>
       <button class="nav-btn" id="toggleFullscreenBtn" title="Toggle Fullscreen for Projector">⛶ Fullscreen</button>
       <button class="nav-btn hidden" id="adminLogoutBtn" style="color: #f87171; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; cursor: pointer;" title="Logout from Admin">🚪 Admin Logout</button>
-      <a href="/" class="nav-btn" title="Back to Team Login">📱 Team Login</a>
+      <a href="/" class="nav-btn" title="Back to Event Home">🏠 Event Home</a>
+      <a href="/team.html" class="nav-btn nav-btn-highlight" title="Competition Arena">🚀 Competition Arena</a>
     </div>
-  </nav>
+  </header>
 
   <main class="page-container" style="max-width: 1280px;">
 
@@ -153,7 +159,7 @@
       <!-- Admin Tab Navigation & Session Bar -->
       <div class="admin-tabs" style="align-items: center;">
         <button class="admin-tab-btn active" id="tabBtnArena" data-tab="arenaTab">
-          <span>🎮</span> Live Quiz Arena
+          <span>🎮</span> Live Competition Arena
         </button>
         <button class="admin-tab-btn" id="tabBtnQuestions" data-tab="questionsTab">
           <span>📝</span> Manage Questions
@@ -323,9 +329,9 @@
         <div class="scoreboard-container hidden fade-in" id="hostFinalScoreboardView" style="margin-top: 1rem;">
           <div class="winner-banner">
             <div class="winner-crown">🏆</div>
-            <div class="winner-subtitle">QUIZ ARENA TOURNAMENT CHAMPION</div>
+            <div class="winner-subtitle">AIKYAM 2K26 • FUN&TECH CHAMPION</div>
             <h1 class="winner-name" id="hostWinnerTeamName">Team 4</h1>
-            <p class="winner-tagline">CONGRATULATIONS TO THE QUIZ CHAMPIONS!</p>
+            <p class="winner-tagline">CONGRATULATIONS TO THE AIKYAM 2K26 FUN&TECH CHAMPIONS!</p>
           </div>
 
           <!-- Top 3 Podium -->
