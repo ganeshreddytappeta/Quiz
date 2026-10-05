@@ -9,16 +9,16 @@ dotenv.config();
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/quiz_arena";
 
 const INITIAL_TEAMS = [
-  { teamName: "Team 1", teamCode: "T1A7" },
-  { teamName: "Team 2", teamCode: "T2B8" },
-  { teamName: "Team 3", teamCode: "T3C9" },
-  { teamName: "Team 4", teamCode: "T4D1" },
-  { teamName: "Team 5", teamCode: "T5E2" },
-  { teamName: "Team 6", teamCode: "T6F3" },
-  { teamName: "Team 7", teamCode: "T7G4" },
-  { teamName: "Team 8", teamCode: "T8H5" },
-  { teamName: "Team 9", teamCode: "T9I6" },
-  { teamName: "Team 10", teamCode: "T10J7" }
+  { teamName: "MEDHA", teamCode: "T1A7" },
+  { teamName: "HACHNOVA", teamCode: "T2B8" },
+  { teamName: "TEAM NOVA", teamCode: "T3C9" },
+  { teamName: "AGASTYA", teamCode: "T4D1" },
+  { teamName: "APEX CREW", teamCode: "T5E2" },
+  { teamName: "HIGH5", teamCode: "T6F3" },
+  { teamName: "CTRL FREAKS", teamCode: "T7G4" },
+  { teamName: "FIVE STARS", teamCode: "T8H5" },
+  { teamName: "CRAZY BIRDS", teamCode: "T9I6" },
+  { teamName: "ANVESHANA", teamCode: "T10J7" }
 ];
 
 function cleanMongoUri(rawUri) {

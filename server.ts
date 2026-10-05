@@ -116,16 +116,16 @@ export interface TeamConfig {
 const TEAMS_FILE = path.join(process.cwd(), "data", "teams.json");
 
 const DEFAULT_TEAMS: TeamConfig[] = [
-  { id: "t1", name: "Team 1", code: "T1A7" },
-  { id: "t2", name: "Team 2", code: "T2B8" },
-  { id: "t3", name: "Team 3", code: "T3C9" },
-  { id: "t4", name: "Team 4", code: "T4D1" },
-  { id: "t5", name: "Team 5", code: "T5E2" },
-  { id: "t6", name: "Team 6", code: "T6F3" },
-  { id: "t7", name: "Team 7", code: "T7G4" },
-  { id: "t8", name: "Team 8", code: "T8H5" },
-  { id: "t9", name: "Team 9", code: "T9I6" },
-  { id: "t10", name: "Team 10", code: "T10J7" }
+  { id: "t1", name: "MEDHA", code: "T1A7" },
+  { id: "t2", name: "HACHNOVA", code: "T2B8" },
+  { id: "t3", name: "TEAM NOVA", code: "T3C9" },
+  { id: "t4", name: "AGASTYA", code: "T4D1" },
+  { id: "t5", name: "APEX CREW", code: "T5E2" },
+  { id: "t6", name: "HIGH5", code: "T6F3" },
+  { id: "t7", name: "CTRL FREAKS", code: "T7G4" },
+  { id: "t8", name: "FIVE STARS", code: "T8H5" },
+  { id: "t9", name: "CRAZY BIRDS", code: "T9I6" },
+  { id: "t10", name: "ANVESHANA", code: "T10J7" }
 ];
 
 function loadTeams(): TeamConfig[] {
@@ -298,7 +298,16 @@ async function syncMongoData() {
   if (!isMongoConnected) return;
 
   try {
-    // 1. Check & Seed Teams in MongoDB
+    // 1. Sync Teams in MongoDB with activeTeams from teams.json
+    const activeNames = activeTeams.map(t => t.name.trim().toLowerCase());
+    // Remove teams from MongoDB that are not in activeTeams
+    const existingDbTeams = await Team.find();
+    for (const dt of existingDbTeams) {
+      if (!activeNames.includes(dt.teamName.trim().toLowerCase())) {
+        await Team.deleteOne({ _id: dt._id });
+      }
+    }
+
     for (const t of activeTeams) {
       const existing = await Team.findOne({ teamName: t.name });
       if (!existing) {
@@ -310,6 +319,9 @@ async function syncMongoData() {
           totalScore: 0,
           totalResponseTime: 0
         });
+      } else if (existing.teamCode !== t.code) {
+        existing.teamCode = t.code;
+        await existing.save();
       }
     }
 
@@ -776,7 +788,11 @@ function findTeamByCredentials(inputName: string, inputCode: string): { team: Te
   if (!target) return null;
 
   const defaultSlot = DEFAULT_TEAMS.find((dt) => dt.id === target?.id);
-  const validCodes = [target.code.trim().toUpperCase()];
+  const validCodes = [
+    target.code.trim().toUpperCase(),
+    target.name.trim().toUpperCase(),
+    target.name.replace(/\s+/g, "").toUpperCase()
+  ];
   if (defaultSlot) {
     validCodes.push(defaultSlot.code.trim().toUpperCase());
   }

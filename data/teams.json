@@ -1,62 +1,52 @@
 [
   {
-    "id": "6aa688441130281fc1c2fc39",
-    "name": "harsha",
-    "code": "86"
+    "id": "t1",
+    "name": "MEDHA",
+    "code": "T1A7"
   },
   {
-    "id": "6aa688441130281fc1c2fc3a",
-    "name": "khalender",
-    "code": "A4"
+    "id": "t2",
+    "name": "HACHNOVA",
+    "code": "T2B8"
   },
   {
-    "id": "6aa688441130281fc1c2fc3b",
-    "name": "Team 3",
+    "id": "t3",
+    "name": "TEAM NOVA",
     "code": "T3C9"
   },
   {
-    "id": "6aa688441130281fc1c2fc3c",
-    "name": "Team 4",
+    "id": "t4",
+    "name": "AGASTYA",
     "code": "T4D1"
   },
   {
-    "id": "6aa688441130281fc1c2fc3d",
-    "name": "Team 5",
+    "id": "t5",
+    "name": "APEX CREW",
     "code": "T5E2"
   },
   {
-    "id": "6aa688441130281fc1c2fc3e",
-    "name": "Team 6",
+    "id": "t6",
+    "name": "HIGH5",
     "code": "T6F3"
   },
   {
-    "id": "6aa688441130281fc1c2fc3f",
-    "name": "Team 7",
+    "id": "t7",
+    "name": "CTRL FREAKS",
     "code": "T7G4"
   },
   {
-    "id": "6aa688441130281fc1c2fc40",
-    "name": "Team 8",
+    "id": "t8",
+    "name": "FIVE STARS",
     "code": "T8H5"
   },
   {
-    "id": "6aa688451130281fc1c2fc41",
-    "name": "Team 9",
+    "id": "t9",
+    "name": "CRAZY BIRDS",
     "code": "T9I6"
   },
   {
-    "id": "6aa688451130281fc1c2fc42",
-    "name": "Team 10",
+    "id": "t10",
+    "name": "ANVESHANA",
     "code": "T10J7"
-  },
-  {
-    "id": "6aa6886d57cc2c6a69a2b308",
-    "name": "saikrishna",
-    "code": "123"
-  },
-  {
-    "id": "6aa6886d57cc2c6a69a2b309",
-    "name": "Cyber Hawks",
-    "code": "HAWK99"
   }
 ]
