@@ -91,11 +91,24 @@ body {
   flex-direction: column;
   text-decoration: none;
   gap: 0.12rem;
+  user-select: none;
+}
+
+a.brand-block {
+  cursor: pointer;
   transition: transform 0.2s ease;
 }
 
-.brand-block:hover {
+a.brand-block:hover {
   transform: translateY(-1px);
+}
+
+div.brand-block {
+  cursor: default;
+}
+
+div.brand-block:hover {
+  transform: none;
 }
 
 .brand-main {
@@ -166,6 +179,20 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.brand-badge-static {
+  color: #38bdf8;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.2rem 0.4rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: default;
+  user-select: none;
 }
 
 .nav-links {
