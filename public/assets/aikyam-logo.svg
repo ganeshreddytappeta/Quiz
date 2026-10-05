@@ -1,25 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
   <defs>
-    <!-- Background & Glow Filters -->
-    <filter id="neon-glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
+    <!-- Glow Filters -->
+    <filter id="neon-glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur1" />
+      <feGaussianBlur stdDeviation="16" result="blur2" />
       <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="blur" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
 
-    <filter id="neon-glow-magenta" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="10" result="blur" />
+    <filter id="neon-glow-magenta" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9" result="blur1" />
+      <feGaussianBlur stdDeviation="18" result="blur2" />
       <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="blur" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
 
-    <filter id="subtle-glow" x="-10%" y="-10%" width="120%" height="120%">
+    <filter id="subtle-glow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="4" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
@@ -27,252 +29,306 @@
       </feMerge>
     </filter>
 
-    <!-- Metallic & Neon Gradients -->
-    <linearGradient id="grad-cyan-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+    <filter id="heavy-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.9" />
+    </filter>
+
+    <!-- Gradients for Outer Ring & Neons -->
+    <linearGradient id="ring-outer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00f0ff" />
-      <stop offset="50%" stop-color="#0099ff" />
-      <stop offset="100%" stop-color="#7000ff" />
+      <stop offset="35%" stop-color="#0088ff" />
+      <stop offset="70%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#ff00d4" />
     </linearGradient>
 
-    <linearGradient id="grad-magenta-pink" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="ring-inner-grad" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ff00d4" />
-      <stop offset="50%" stop-color="#d946ef" />
-      <stop offset="100%" stop-color="#9333ea" />
+      <stop offset="50%" stop-color="#0088ff" />
+      <stop offset="100%" stop-color="#00f0ff" />
     </linearGradient>
 
-    <linearGradient id="grad-chrome-aikyam" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- 3D Chrome AIKYAM Metallic Gradients -->
+    <linearGradient id="chrome-aikyam" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="35%" stop-color="#cde9ff" />
-      <stop offset="50%" stop-color="#5bb5ff" />
-      <stop offset="65%" stop-color="#144b9e" />
-      <stop offset="100%" stop-color="#0a1f4a" />
+      <stop offset="28%" stop-color="#d6f0ff" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="68%" stop-color="#0284c7" />
+      <stop offset="85%" stop-color="#0c2552" />
+      <stop offset="100%" stop-color="#050e24" />
     </linearGradient>
 
-    <linearGradient id="grad-chrome-2k26" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- 3D Chrome 2K26 Metallic Gradients -->
+    <linearGradient id="chrome-2k26" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="30%" stop-color="#ffd5fc" />
-      <stop offset="55%" stop-color="#f43f5e" />
+      <stop offset="25%" stop-color="#ffd5fc" />
+      <stop offset="50%" stop-color="#ff00d4" />
       <stop offset="75%" stop-color="#a21caf" />
-      <stop offset="100%" stop-color="#4c0519" />
+      <stop offset="100%" stop-color="#3b0742" />
     </linearGradient>
 
-    <!-- People Unity Gradients -->
-    <linearGradient id="petal-violet" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c084fc" />
-      <stop offset="100%" stop-color="#6366f1" />
+    <!-- Center Figures Unity Gradients -->
+    <linearGradient id="fig-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#0284c7" />
     </linearGradient>
-    <linearGradient id="petal-pink" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f472b6" />
+    <linearGradient id="fig-pink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff33a8" />
       <stop offset="100%" stop-color="#e11d48" />
     </linearGradient>
-    <linearGradient id="petal-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="fig-orange" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#fb923c" />
       <stop offset="100%" stop-color="#ea580c" />
     </linearGradient>
-    <linearGradient id="petal-yellow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#facc15" />
+    <linearGradient id="fig-yellow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
       <stop offset="100%" stop-color="#ca8a04" />
     </linearGradient>
-    <linearGradient id="petal-green" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="fig-green" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#4ade80" />
       <stop offset="100%" stop-color="#16a34a" />
     </linearGradient>
-    <linearGradient id="petal-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="100%" stop-color="#0284c7" />
+    <linearGradient id="fig-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc" />
+      <stop offset="100%" stop-color="#7c3aed" />
     </linearGradient>
   </defs>
 
-  <!-- Ambient Glow Behind Emblem -->
-  <circle cx="450" cy="225" r="210" fill="#0284c7" opacity="0.25" filter="url(#neon-glow-cyan)" />
-  <circle cx="450" cy="225" r="170" fill="#d946ef" opacity="0.22" filter="url(#neon-glow-magenta)" />
+  <!-- Dark Shield Base Background -->
+  <circle cx="400" cy="400" r="380" fill="#02040b" />
 
-  <!-- Outer Cyber Circuit Traces (Left & Right Wings) -->
-  <g stroke="#00f0ff" stroke-width="3" fill="none" opacity="0.85" filter="url(#subtle-glow)">
-    <!-- Left Wing Circuits -->
-    <path d="M 230 225 L 180 225 L 140 180 L 70 180" />
-    <circle cx="70" cy="180" r="5" fill="#00f0ff" />
-    <path d="M 245 285 L 200 320 L 120 320 L 90 350 L 50 350" />
-    <circle cx="50" cy="350" r="5" fill="#00f0ff" />
-    <path d="M 245 165 L 195 130 L 130 130 L 95 100 L 60 100" />
-    <circle cx="60" cy="100" r="5" fill="#00f0ff" />
-    
-    <!-- Right Wing Circuits -->
-    <path d="M 670 225 L 720 225 L 760 180 L 830 180" stroke="#d946ef" />
-    <circle cx="830" cy="180" r="5" fill="#d946ef" />
-    <path d="M 655 285 L 700 320 L 780 320 L 810 350 L 850 350" stroke="#d946ef" />
-    <circle cx="850" cy="350" r="5" fill="#d946ef" />
-    <path d="M 655 165 L 705 130 L 770 130 L 805 100 L 840 100" stroke="#d946ef" />
-    <circle cx="840" cy="100" r="5" fill="#d946ef" />
+  <!-- Outer Neon Rings -->
+  <circle cx="400" cy="400" r="350" fill="none" stroke="url(#ring-outer-grad)" stroke-width="8" filter="url(#neon-glow-cyan)" />
+  <circle cx="400" cy="400" r="348" fill="#040817" stroke="#00f0ff" stroke-width="3" />
+  <circle cx="400" cy="400" r="332" fill="#020512" stroke="url(#ring-inner-grad)" stroke-width="4" filter="url(#subtle-glow)" />
+
+  <!-- Top Radiant Crest Star -->
+  <g transform="translate(400, 78)">
+    <circle cx="0" cy="0" r="14" fill="#ffffff" filter="url(#neon-glow-cyan)" />
+    <!-- Vertical Flare -->
+    <path d="M 0 -45 Q 0 0 2 0 Q 0 0 0 45 Q 0 0 -2 0 Q 0 0 0 -45 Z" fill="#00f0ff" filter="url(#subtle-glow)" />
+    <!-- Horizontal Flare -->
+    <path d="M -45 0 Q 0 0 0 2 Q 0 0 45 0 Q 0 0 0 -2 Q 0 0 -45 0 Z" fill="#00f0ff" filter="url(#subtle-glow)" />
+    <!-- Main 4-point Diamond Star -->
+    <path d="M 0 -28 Q 0 0 24 0 Q 0 0 0 28 Q 0 0 -24 0 Q 0 0 0 -28 Z" fill="#ffffff" />
+    <circle cx="0" cy="0" r="4" fill="#00f0ff" />
   </g>
 
-  <!-- Outer Glowing Tech Ring -->
-  <circle cx="450" cy="225" r="205" fill="none" stroke="#00f0ff" stroke-width="4" opacity="0.9" filter="url(#neon-glow-cyan)" />
-  <circle cx="450" cy="225" r="195" fill="#030716" stroke="url(#grad-magenta-pink)" stroke-width="3" />
-  <circle cx="450" cy="225" r="145" fill="#050b24" stroke="#00f0ff" stroke-width="2.5" />
+  <!-- ================================================================= -->
+  <!-- 6 SEGMENTED ICON CHAMBERS WITH CIRCUIT TRACES                     -->
+  <!-- ================================================================= -->
 
-  <!-- Segment Spoke Dividers -->
-  <g stroke="rgba(0, 240, 255, 0.45)" stroke-width="2">
-    <line x1="450" y1="20" x2="450" y2="80" />
-    <line x1="627" y1="122" x2="575" y2="152" />
-    <line x1="627" y1="327" x2="575" y2="297" />
-    <line x1="450" y1="430" x2="450" y2="370" />
-    <line x1="272" y1="327" x2="324" y2="297" />
-    <line x1="272" y1="122" x2="324" y2="152" />
+  <!-- Circuit Traces Connecting Hex Chambers -->
+  <g stroke="#00f0ff" stroke-width="3.5" fill="none" opacity="0.9" filter="url(#subtle-glow)">
+    <!-- Left Branch Circuits -->
+    <path d="M 215 350 L 175 350 L 135 340" />
+    <circle cx="135" cy="340" r="4.5" fill="#00f0ff" />
+    <path d="M 210 260 L 160 250 L 125 210" />
+    <circle cx="125" cy="210" r="4.5" fill="#00f0ff" />
+    <path d="M 250 480 L 195 480 L 160 470" />
+    <circle cx="160" cy="470" r="4.5" fill="#00f0ff" />
+
+    <!-- Right Branch Circuits (Magenta) -->
+    <path d="M 585 350 L 625 350 L 665 340" stroke="#ff00d4" />
+    <circle cx="665" cy="340" r="4.5" fill="#ff00d4" />
+    <path d="M 590 260 L 640 250 L 675 210" stroke="#ff00d4" />
+    <circle cx="675" cy="210" r="4.5" fill="#ff00d4" />
+    <path d="M 550 480 L 605 480 L 640 470" stroke="#ff00d4" />
+    <circle cx="640" cy="470" r="4.5" fill="#ff00d4" />
   </g>
 
-  <!-- Circular Ring Category Icons (Film, Music, Idea, Code, Trivia, Fun) -->
-  <g fill="#ffffff" filter="url(#subtle-glow)">
-    <!-- Clapperboard (Top Left) -->
-    <g transform="translate(370, 75) scale(0.85)">
-      <rect x="0" y="8" width="34" height="24" rx="3" fill="#00f0ff" />
-      <polygon points="0,0 34,0 34,7 0,7" fill="#ffffff" />
-      <polygon points="4,0 9,0 5,7 0,7" fill="#050814" />
-      <polygon points="14,0 19,0 15,7 10,7" fill="#050814" />
-      <polygon points="24,0 29,0 25,7 20,7" fill="#050814" />
-      <polygon points="8,15 22,20 8,25" fill="#050814" />
-    </g>
-
-    <!-- Music Notes (Top Right) -->
-    <g transform="translate(500, 75) scale(0.9)">
-      <circle cx="8" cy="24" r="5" fill="#d946ef" />
-      <circle cx="26" cy="20" r="5" fill="#d946ef" />
-      <rect x="11" y="8" width="3" height="16" fill="#fff" />
-      <rect x="29" y="4" width="3" height="16" fill="#fff" />
-      <polygon points="11,8 32,4 32,10 11,14" fill="#fff" />
-    </g>
-
-    <!-- Lightbulb / Idea (Right) -->
-    <g transform="translate(575, 160) scale(0.9)">
-      <path d="M16 2 C9.4 2 4 7.4 4 14 C4 18 6 21 8 23 L8 26 L24 26 L24 23 C26 21 28 18 28 14 C28 7.4 22.6 2 16 2 Z" fill="#facc15" />
-      <rect x="10" y="27" width="12" height="3" rx="1" fill="#fff" />
-      <rect x="12" y="31" width="8" height="2" rx="1" fill="#fff" />
-    </g>
-
-    <!-- Laptop with </ > (Bottom Right) -->
-    <g transform="translate(555, 265) scale(0.9)">
-      <rect x="4" y="4" width="32" height="22" rx="2" fill="#0369a1" stroke="#00f0ff" stroke-width="1.5" />
-      <polygon points="0,26 40,26 38,30 2,30" fill="#cbd5e1" />
-      <text x="10" y="19" fill="#00f0ff" font-family="monospace" font-weight="bold" font-size="11">&lt;/&gt;</text>
-    </g>
-
-    <!-- Trivia / Question Bulb (Bottom Left) -->
-    <g transform="translate(305, 265) scale(0.9)">
-      <path d="M16 2 C9.4 2 4 7.4 4 14 C4 18 6 21 8 23 L8 26 L24 26 L24 23 C26 21 28 18 28 14 C28 7.4 22.6 2 16 2 Z" fill="#0284c7" />
-      <text x="12" y="18" fill="#ffffff" font-family="sans-serif" font-weight="900" font-size="14">?</text>
-      <rect x="11" y="27" width="10" height="3" rx="1" fill="#fff" />
-    </g>
-
-    <!-- Celebration Balloons (Left) -->
-    <g transform="translate(290, 155) scale(0.9)">
-      <ellipse cx="14" cy="14" rx="8" ry="11" fill="#38bdf8" />
-      <polygon points="12,24 16,24 14,27" fill="#38bdf8" />
-      <ellipse cx="24" cy="18" rx="7" ry="9" fill="#f43f5e" />
-      <polygon points="22,26 26,26 24,29" fill="#f43f5e" />
+  <!-- Chamber 1: Clapperboard (Top Left) -->
+  <g transform="translate(305, 145)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Clapper Icon -->
+    <g transform="translate(20, 26) scale(0.95)">
+      <rect x="2" y="10" width="36" height="25" rx="3" fill="#00f0ff" />
+      <polygon points="2,0 38,0 38,9 2,9" fill="#ffffff" />
+      <polygon points="6,0 12,0 8,9 2,9" fill="#040b24" />
+      <polygon points="17,0 23,0 19,9 13,9" fill="#040b24" />
+      <polygon points="28,0 34,0 30,9 24,9" fill="#040b24" />
+      <polygon points="14,16 28,22 14,28" fill="#040b24" />
     </g>
   </g>
 
-  <!-- INNER CORE: Interconnected Unity Circle (Aikyam Emblem) -->
-  <g transform="translate(450, 225)">
-    <!-- 6 Stylized Figures Forming Unity Vortex -->
-    <!-- Figure 1: Violet (Top) -->
+  <!-- Chamber 2: Music Notes (Top Right) -->
+  <g transform="translate(495, 145)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Music Icon -->
+    <g transform="translate(22, 25) scale(1)">
+      <circle cx="10" cy="28" r="6" fill="#ffffff" />
+      <circle cx="28" cy="23" r="6" fill="#ffffff" />
+      <rect x="13.5" y="9" width="3" height="19" fill="#ffffff" />
+      <rect x="31.5" y="4" width="3" height="19" fill="#ffffff" />
+      <polygon points="13.5,9 34.5,4 34.5,11 13.5,16" fill="#ffffff" />
+    </g>
+  </g>
+
+  <!-- Chamber 3: Lightbulb Idea (Right) -->
+  <g transform="translate(605, 270)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Lightbulb Icon -->
+    <g transform="translate(26, 23)">
+      <path d="M14 2 C8 2 3 7 3 13 C3 17 5 20 7 22 L7 25 L21 25 L21 22 C23 20 25 17 25 13 C25 7 20 2 14 2 Z" fill="#ffffff" />
+      <rect x="9" y="27" width="10" height="3" rx="1" fill="#00f0ff" />
+      <rect x="11" y="31" width="6" height="2" rx="1" fill="#00f0ff" />
+      <!-- Filament Core -->
+      <path d="M 11 13 C 11 9 17 9 17 13" fill="none" stroke="#040b24" stroke-width="2" />
+    </g>
+  </g>
+
+  <!-- Chamber 4: Coding Laptop (Bottom Right) -->
+  <g transform="translate(585, 415)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Laptop Icon -->
+    <g transform="translate(19, 26)">
+      <rect x="4" y="4" width="34" height="22" rx="2" fill="#020817" stroke="#ffffff" stroke-width="2" />
+      <polygon points="0,26 42,26 39,30 3,30" fill="#ffffff" />
+      <text x="10" y="19" fill="#00f0ff" font-family="monospace" font-weight="900" font-size="12">&lt;/&gt;</text>
+    </g>
+  </g>
+
+  <!-- Chamber 5: Gear in Lightbulb (Bottom Left) -->
+  <g transform="translate(215, 415)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Gear Bulb Icon -->
+    <g transform="translate(26, 23)">
+      <path d="M14 2 C8 2 3 7 3 13 C3 17 5 20 7 22 L7 25 L21 25 L21 22 C23 20 25 17 25 13 C25 7 20 2 14 2 Z" fill="#ffffff" />
+      <rect x="9" y="27" width="10" height="3" rx="1" fill="#00f0ff" />
+      <rect x="11" y="31" width="6" height="2" rx="1" fill="#00f0ff" />
+      <!-- Gear Inside -->
+      <circle cx="14" cy="13" r="5" fill="#040b24" />
+      <circle cx="14" cy="13" r="2.5" fill="#ffffff" />
+      <rect x="13" y="6" width="2" height="14" fill="#040b24" />
+      <rect x="7" y="12" width="14" height="2" fill="#040b24" />
+    </g>
+  </g>
+
+  <!-- Chamber 6: Celebration Balloons (Left) -->
+  <g transform="translate(195, 270)">
+    <polygon points="40,5 75,25 75,65 40,85 5,65 5,25" fill="#040b24" stroke="#00f0ff" stroke-width="3" filter="url(#subtle-glow)" />
+    <!-- Balloons Icon -->
+    <g transform="translate(24, 20)">
+      <ellipse cx="14" cy="15" rx="9" ry="13" fill="#ffffff" />
+      <polygon points="12,28 16,28 14,31" fill="#ffffff" />
+      <path d="M 14 31 Q 12 37 15 42" fill="none" stroke="#00f0ff" stroke-width="1.5" />
+      
+      <ellipse cx="26" cy="20" rx="8" ry="11" fill="#00f0ff" />
+      <polygon points="24,31 28,31 26,34" fill="#00f0ff" />
+      <path d="M 26 34 Q 28 39 25 44" fill="none" stroke="#ffffff" stroke-width="1.5" />
+    </g>
+  </g>
+
+  <!-- ================================================================= -->
+  <!-- CENTER VORTEX: 6 INTERCONNECTED UNITY FIGURES (AIKYAM MANDALA)     -->
+  <!-- ================================================================= -->
+  <g transform="translate(400, 360)">
+    <!-- Core Ambient Glow -->
+    <circle cx="0" cy="0" r="140" fill="#020924" stroke="#00f0ff" stroke-width="2.5" />
+    <circle cx="0" cy="0" r="130" fill="#010411" />
+
+    <!-- 6 Stylized Figures Forming Unity Pinwheel -->
+    <!-- Figure 1: Top (Cyan/Blue) -->
     <g transform="rotate(0)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-violet)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-violet)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-cyan)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-cyan)" />
     </g>
 
-    <!-- Figure 2: Pink/Magenta (60 deg) -->
+    <!-- Figure 2: Top-Right (Pink/Magenta) -->
     <g transform="rotate(60)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-pink)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-pink)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-pink)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-pink)" />
     </g>
 
-    <!-- Figure 3: Orange (120 deg) -->
+    <!-- Figure 3: Bottom-Right (Orange/Red) -->
     <g transform="rotate(120)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-orange)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-orange)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-orange)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-orange)" />
     </g>
 
-    <!-- Figure 4: Yellow (180 deg) -->
+    <!-- Figure 4: Bottom (Yellow/Gold) -->
     <g transform="rotate(180)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-yellow)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-yellow)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-yellow)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-yellow)" />
     </g>
 
-    <!-- Figure 5: Green (240 deg) -->
+    <!-- Figure 5: Bottom-Left (Lime/Green) -->
     <g transform="rotate(240)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-green)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-green)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-green)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-green)" />
     </g>
 
-    <!-- Figure 6: Cyan (300 deg) -->
+    <!-- Figure 6: Top-Left (Purple/Violet) -->
     <g transform="rotate(300)">
-      <circle cx="0" cy="-75" r="14" fill="url(#petal-cyan)" filter="url(#subtle-glow)" />
-      <path d="M 0 -58 C 22 -58 45 -40 55 -15 C 38 -25 18 -25 0 -45 C -18 -25 -38 -25 -55 -15 C -45 -40 -22 -58 0 -58 Z" fill="url(#petal-cyan)" />
+      <circle cx="0" cy="-88" r="18" fill="url(#fig-purple)" filter="url(#subtle-glow)" />
+      <path d="M 0 -68 C 28 -68 55 -45 68 -15 C 45 -28 20 -28 0 -52 C -20 -28 -45 -28 -68 -15 C -55 -45 -28 -68 0 -68 Z" fill="url(#fig-purple)" />
     </g>
 
-    <!-- Central Sparkling Star of Unity -->
-    <circle cx="0" cy="0" r="18" fill="#ffffff" filter="url(#neon-glow-cyan)" />
-    <path d="M 0 -35 Q 0 0 35 0 Q 0 0 0 35 Q 0 0 -35 0 Q 0 0 0 -35 Z" fill="#ffffff" filter="url(#subtle-glow)" />
-    <path d="M 0 -22 Q 0 0 22 0 Q 0 0 0 22 Q 0 0 -22 0 Q 0 0 0 -22 Z" fill="#00f0ff" />
-    <circle cx="0" cy="0" r="6" fill="#ffffff" />
+    <!-- Central Unity Sparkle Diamond Star -->
+    <circle cx="0" cy="0" r="22" fill="#ffffff" filter="url(#neon-glow-cyan)" />
+    <path d="M 0 -44 Q 0 0 44 0 Q 0 0 0 44 Q 0 0 -44 0 Q 0 0 0 -44 Z" fill="#ffffff" filter="url(#subtle-glow)" />
+    <path d="M 0 -26 Q 0 0 26 0 Q 0 0 0 26 Q 0 0 -26 0 Q 0 0 0 -26 Z" fill="#00f0ff" />
+    <circle cx="0" cy="0" r="7" fill="#ffffff" />
   </g>
 
   <!-- ================================================================= -->
-  <!-- 3D BOLD CHROME TYPOGRAPHY: AIKYAM                                 -->
+  <!-- 3D BOLD CHROME METALLIC TYPOGRAPHY: AIKYAM                        -->
   <!-- ================================================================= -->
-  <g id="typography-aikyam" transform="translate(450, 480)">
+  <g id="typography-aikyam" transform="translate(400, 620)">
     
-    <!-- Outer Glow Underlayer -->
+    <!-- Neon Underglow Atmosphere -->
     <text x="0" y="0" 
           font-family="system-ui, -apple-system, sans-serif" 
-          font-size="124" 
+          font-size="142" 
           font-weight="950" 
           text-anchor="middle" 
-          letter-spacing="6" 
+          letter-spacing="4" 
           fill="#00f0ff" 
-          opacity="0.8" 
+          opacity="0.85" 
           filter="url(#neon-glow-cyan)">
       AÎKYAM
     </text>
 
-    <!-- Deep Bevel Shadow Underlayer -->
-    <text x="3" y="8" 
+    <!-- Deep Bevel Shadow -->
+    <text x="4" y="10" 
           font-family="system-ui, -apple-system, sans-serif" 
-          font-size="124" 
+          font-size="142" 
           font-weight="950" 
           text-anchor="middle" 
-          letter-spacing="6" 
-          fill="#040b24">
+          letter-spacing="4" 
+          fill="#020617">
       AÎKYAM
     </text>
 
-    <!-- Chrome Metallic Front Layer -->
+    <!-- Front Beveled Metallic Chrome Face -->
     <text x="0" y="0" 
           font-family="system-ui, -apple-system, sans-serif" 
-          font-size="124" 
+          font-size="142" 
           font-weight="950" 
           text-anchor="middle" 
-          letter-spacing="6" 
-          fill="url(#grad-chrome-aikyam)" 
+          letter-spacing="4" 
+          fill="url(#chrome-aikyam)" 
           stroke="#ffffff" 
-          stroke-width="2.5">
+          stroke-width="3">
       AÎKYAM
     </text>
 
     <!-- Diamond Accent over the I -->
-    <polygon points="-78,-115 -68,-95 -78,-75 -88,-95" fill="#00f0ff" filter="url(#neon-glow-cyan)" />
-    <polygon points="-78,-110 -71,-95 -78,-80 -85,-95" fill="#ffffff" />
+    <polygon points="-88,-130 -76,-105 -88,-80 -100,-105" fill="#00f0ff" filter="url(#neon-glow-cyan)" />
+    <polygon points="-88,-124 -80,-105 -88,-86 -96,-105" fill="#ffffff" />
   </g>
 
   <!-- ================================================================= -->
-  <!-- 3D NEON TYPOGRAPHY: 2K26                                          -->
+  <!-- 3D NEON METALLIC TYPOGRAPHY: 2K26 WITH CHEVRON ACCENTS             -->
   <!-- ================================================================= -->
-  <g id="typography-2k26" transform="translate(450, 560)">
-    <!-- Glow Underlayer -->
+  <g id="typography-2k26" transform="translate(400, 715)">
+    <!-- Left Chevron Arrow ◀ -->
+    <polygon points="-210,-24 -155,-5 -210,14 -190,-5" fill="#ff00d4" filter="url(#neon-glow-magenta)" />
+    <polygon points="-205,-20 -165,-5 -205,10 -192,-5" fill="#ffffff" />
+
+    <!-- 2K26 Underglow Atmosphere -->
     <text x="0" y="0" 
           font-family="system-ui, -apple-system, sans-serif" 
-          font-size="78" 
+          font-size="94" 
           font-weight="950" 
           text-anchor="middle" 
           letter-spacing="8" 
@@ -282,45 +338,22 @@
       2K26
     </text>
 
-    <!-- Front Beveled Layer -->
+    <!-- 2K26 Front Beveled Metallic Face -->
     <text x="0" y="0" 
           font-family="system-ui, -apple-system, sans-serif" 
-          font-size="78" 
+          font-size="94" 
           font-weight="950" 
           text-anchor="middle" 
           letter-spacing="8" 
-          fill="url(#grad-chrome-2k26)" 
+          fill="url(#chrome-2k26)" 
           stroke="#ffffff" 
-          stroke-width="1.8">
+          stroke-width="2.2">
       2K26
     </text>
-  </g>
 
-  <!-- ================================================================= -->
-  <!-- MOTTO: ONE PLATFORM | MANY TALENTS | ENDLESS POSSIBILITIES        -->
-  <!-- ================================================================= -->
-  <g transform="translate(450, 615)">
-    <!-- Left Divider Line with Cyan Fade -->
-    <line x1="-390" y1="0" x2="-260" y2="0" stroke="url(#grad-cyan-blue)" stroke-width="2" />
-    <circle cx="-260" cy="0" r="3" fill="#00f0ff" />
-
-    <!-- Center Motto Text -->
-    <text x="0" y="4" 
-          font-family="system-ui, -apple-system, sans-serif" 
-          font-size="14.5" 
-          font-weight="800" 
-          text-anchor="middle" 
-          letter-spacing="4.5" 
-          fill="#e2e8f0">
-      ONE PLATFORM  <tspan fill="#00f0ff">|</tspan>  MANY TALENTS  <tspan fill="#ff00d4">|</tspan>  ENDLESS POSSIBILITIES
-    </text>
-
-    <!-- Right Divider Line with Magenta Fade -->
-    <circle cx="260" cy="0" r="3" fill="#ff00d4" />
-    <line x1="260" y1="0" x2="390" y2="0" stroke="url(#grad-magenta-pink)" stroke-width="2" />
-
-    <!-- Diamond Accent Underneath -->
-    <polygon points="0,14 6,20 0,26 -6,20" fill="#00f0ff" filter="url(#subtle-glow)" />
+    <!-- Right Chevron Arrow ▶ -->
+    <polygon points="210,-24 155,-5 210,14 190,-5" fill="#ff00d4" filter="url(#neon-glow-magenta)" />
+    <polygon points="205,-20 165,-5 205,10 192,-5" fill="#ffffff" />
   </g>
 
 </svg>
